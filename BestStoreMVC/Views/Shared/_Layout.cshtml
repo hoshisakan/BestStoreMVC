@@ -57,7 +57,7 @@
                                     </a>
                                     <ul class="dropdown-menu" aria-labelledby="navbarDropdown">
                                         <li><a class="dropdown-item" asp-area="" asp-controller="Products" asp-action="Index">Products</a></li>
-                                        <li><a class="dropdown-item" asp-controller="Home" asp-action="Index">Profile</a></li>
+                                        <li><a class="dropdown-item" asp-controller="Account" asp-action="Profile">Profile</a></li>
                                         <li><hr class="dropdown-divider"></li>
                                         <li><a class="dropdown-item" asp-controller="Account" asp-action="Logout">Logout</a></li>
                                     </ul>
@@ -73,7 +73,7 @@
                                         @(appUser!.FirstName + " " + appUser!.LastName + " (Client)")
                                     </a>
                                     <ul class="dropdown-menu" aria-labelledby="navbarDropdown">
-                                        <li><a class="dropdown-item" asp-controller="Home" asp-action="Index">Profile</a></li>
+                                        <li><a class="dropdown-item" asp-controller="Account" asp-action="Profile">Profile</a></li>
                                         <li><hr class="dropdown-divider"></li>
                                         <li><a class="dropdown-item" asp-controller="Account" asp-action="Logout">Logout</a></li>
                                     </ul>

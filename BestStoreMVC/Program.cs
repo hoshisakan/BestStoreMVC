@@ -1,6 +1,8 @@
 using BestStoreMVC.Models;
 using BestStoreMVC.Services;
+using BestStoreMVC.Services.EmailSender;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -22,8 +24,13 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(
             options.Password.RequireNonAlphanumeric = false; //關閉密碼必須包含至少一個「非英數字元」（符號）
             options.Password.RequiredLength = 6;
             options.Password.RequireDigit = true; //開啟至少一個數字 0–9 的驗證
-        }).
-        AddEntityFrameworkStores<ApplicationDbContext>();
+        })
+        .AddEntityFrameworkStores<ApplicationDbContext>()
+        .AddDefaultTokenProviders()
+        ;
+
+builder.Services.Configure<SmtpOptions>(builder.Configuration.GetSection("Smtp"));
+builder.Services.AddScoped<IEmailSenderEx, SmtpEmailSender>();
 
 var app = builder.Build();
 
@@ -40,6 +47,7 @@ app.UseStaticFiles();
 
 app.UseRouting();
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllerRoute(
