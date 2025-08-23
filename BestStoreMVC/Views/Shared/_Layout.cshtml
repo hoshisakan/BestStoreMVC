@@ -1,4 +1,5 @@
-﻿<!DOCTYPE html>
+﻿@using Microsoft.AspNetCore.Identity
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8" />
@@ -36,19 +37,70 @@
                             <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
                         </li>
                     </ul>
-                    <ul class="navbar-nav">
-                        <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle text-dark" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                Admin
-                            </a>
-                            <ul class="dropdown-menu" aria-labelledby="navbarDropdown">
-                                <li><a class="dropdown-item" asp-area="" asp-controller="Products" asp-action="Index">Products</a></li>
-                                <li><a class="dropdown-item" asp-controller="Home" asp-action="Index">Profile</a></li>
-                                <li><hr class="dropdown-divider"></li>
-                                <li><a class="dropdown-item" asp-controller="Home" asp-action="Index">Logout</a></li>
+
+                    @inject SignInManager<ApplicationUser> SignInManager
+                    @inject UserManager<ApplicationUser> UserManager
+
+                    @* 檢查使用者登入狀況 *@
+                    @if (SignInManager.IsSignedIn(User))
+                    {
+                        @* 根據目前的已登入的使用者，從資料庫抓出對應的使用者實體 *@
+                        var appUser = await UserManager.GetUserAsync(User);
+
+                        @* 如果權限是 admin *@
+                        @if (User.IsInRole("admin"))
+                        {
+                            <ul class="navbar-nav">
+                                <li class="nav-item dropdown">
+                                    <a class="nav-link dropdown-toggle text-dark" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                        @(appUser!.FirstName + " " + appUser!.LastName + " (Admin)")
+                                    </a>
+                                    <ul class="dropdown-menu" aria-labelledby="navbarDropdown">
+                                        <li><a class="dropdown-item" asp-area="" asp-controller="Products" asp-action="Index">Products</a></li>
+                                        <li><a class="dropdown-item" asp-controller="Home" asp-action="Index">Profile</a></li>
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li><a class="dropdown-item" asp-controller="Account" asp-action="Logout">Logout</a></li>
+                                    </ul>
+                                </li>
                             </ul>
-                        </li>
-                    </ul>
+                        }
+                        @* 如果權限是 client *@
+                        else if (User.IsInRole("client"))
+                        {
+                            <ul class="navbar-nav">
+                                <li class="nav-item dropdown">
+                                    <a class="nav-link dropdown-toggle text-dark" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                        @(appUser!.FirstName + " " + appUser!.LastName + " (Client)")
+                                    </a>
+                                    <ul class="dropdown-menu" aria-labelledby="navbarDropdown">
+                                        <li><a class="dropdown-item" asp-controller="Home" asp-action="Index">Profile</a></li>
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li><a class="dropdown-item" asp-controller="Account" asp-action="Logout">Logout</a></li>
+                                    </ul>
+                                </li>
+                            </ul>
+                        }
+                        @* 如果是其他的權限 *@
+                        else
+                        {
+                            <ul class="navbar-nav">
+                                <li class="nav-item">
+                                    <a class="nav-link text-dark" asp-area="" asp-controller="Account" asp-action="Logout"></a>
+                                </li>
+                            </ul>
+                        }
+                    } 
+                    else
+                    {
+                        <ul class="navbar-nav">
+                            <li class="nav-item">
+                                <a class="btn btn-outline-primary me-2" asp-area="" asp-controller="Account" asp-action="Register">Register</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="btn btn-primary" asp-area="" asp-controller="Account" asp-action="Login">Login</a>
+                            </li>
+                        </ul>
+                    }
                 </div>
             </div>
         </nav>
