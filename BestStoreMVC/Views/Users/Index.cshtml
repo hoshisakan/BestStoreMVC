@@ -1,0 +1,83 @@
+﻿@using Microsoft.AspNetCore.Identity
+@model List<ApplicationUser>
+@inject UserManager<ApplicationUser> UserManager
+@{
+}
+
+<h2 class="text-center mb-5">List of Users</h2>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Phone</th>
+            <th>Role</th>
+            <th>Created At</th>
+            <th>Action</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var user in Model)
+        {
+            <tr>
+                <td>@(user.FirstName + " " + user.LastName)</td>
+                <td>@user.Email</td>
+                <td>@user.PhoneNumber</td>
+                <td>
+                    @{
+                        var roles = await UserManager.GetRolesAsync(user);
+                        var roleStr = String.Join(", ", roles);
+
+                        string color = "bg-secondary";
+
+                        if (roles.Contains("admin"))
+                        {
+                            color = "bg-danger";
+                        }
+                        else if (roles.Contains("seller"))
+                        {
+                            color = "bg-warning text-dark";
+                        }
+                        else if (roles.Contains("client"))
+                        {
+                            color = "bg-info text-dark";
+                        }
+
+                        <span class="badge rounded-pill @color">@roleStr</span>
+                    }
+                </td>
+                <td>@user.CreatedAt.ToString("MM/dd/yyyy")</td>
+                <td>
+                    <a class="btn btn-primary btn-sm" asp-controller="Users" asp-action="Details"
+                       asp-route-id="@user.Id">
+                        Details
+                    </a>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+<nav>
+    <ul class="pagination">
+        @* 由第 1 頁迴圈到總頁數（ViewBag.TotalPages） *@
+        @for (int i = 1; i <= ViewBag.TotalPages; i++)
+        {
+            @* 儲存是否為當前頁所需的樣式名稱（預設空字串） *@
+            string active = "";
+
+            @* 當前迴圈頁碼 i 等於目前頁（ViewBag.PageIndex）時，套用 active 樣式 *@
+            if (i == ViewBag.PageIndex)
+            {
+                active = "active";
+            }
+
+            @* 分頁項目 li；class 由 'page-item' 加上動態的 active *@
+            <li class="page-item @active">
+                @* 分頁連結；使用 asp-route-pageIndex 帶入目前頁碼 i，連結文字顯示頁碼 *@
+                <a class="page-link" asp-route-pageIndex="@i">@i</a>
+            </li>
+        }
+    </ul>
+</nav>
