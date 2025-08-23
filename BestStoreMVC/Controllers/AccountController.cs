@@ -1,7 +1,11 @@
 ﻿using BestStoreMVC.Models;
+using BestStoreMVC.Services.EmailSender;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore.Metadata.Internal;
+using System.ComponentModel.DataAnnotations;
 using System.Threading.Tasks;
 
 namespace BestStoreMVC.Controllers
@@ -46,7 +50,7 @@ namespace BestStoreMVC.Controllers
             {
                 FirstName = registerDto.FirstName,
                 LastName = registerDto.LastName,
-                UserName = registerDto.Email, // Username 欄位將使用在在認證使用者
+                UserName = registerDto.Email, // UserName 欄位將使用在認證使用者
                 Email = registerDto.Email,
                 PhoneNumber = registerDto.PhoneNumber,
                 Address = registerDto.Address,
@@ -123,6 +127,232 @@ namespace BestStoreMVC.Controllers
             }
 
             return View(loginDto);
+        }
+
+        [Authorize]
+        public async Task<IActionResult> Profile()
+        {
+            // 取得當前登入的使用者
+            var appUser = await userManager.GetUserAsync(User);
+
+            if (appUser == null)
+            {
+                return RedirectToAction("Index", "Home");
+            }
+
+            var profileDto = new ProfileDto
+            {
+                FirstName = appUser.FirstName,
+                LastName = appUser.LastName,
+                Email = appUser.Email ?? "",
+                PhoneNumber = appUser.PhoneNumber,
+                Address = appUser.Address
+            };
+
+            return View(profileDto);
+        }
+
+        [Authorize]
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Profile(ProfileDto profileDto)
+        {
+            if (!ModelState.IsValid)
+            {
+                ViewBag.ErrorMessage = "Please fill all the required fields with valid values";
+                return View(profileDto);
+            }
+
+            // 取得當前登入的使用者
+            var appUser = await userManager.GetUserAsync(User);
+            if (appUser == null)
+            {
+                return RedirectToAction("Index", "Home");
+            }
+
+            // 更新使用者的個人資料
+            appUser.FirstName = profileDto.FirstName;
+            appUser.LastName = profileDto.LastName;
+            appUser.UserName = profileDto.Email; // UserName 欄位將使用在認證使用者
+            appUser.Email = profileDto.Email;
+            appUser.PhoneNumber = profileDto.PhoneNumber;
+            appUser.Address = profileDto.Address;
+
+            var result = await userManager.UpdateAsync(appUser);
+
+            if (result.Succeeded)
+            {
+                ViewBag.SuccessMessage = "Profile updated successfully.";
+            }
+            else
+            {
+                ViewBag.ErrorMessage = "Unable to update the profile: " + result.Errors.First().Description;
+            }
+
+            ViewBag.SuccessMessage = "Profile update successfully";
+            return View(profileDto);
+        }
+
+        [Authorize]
+        public IActionResult Password()
+        {
+            return View();
+        }
+
+        [Authorize]
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Password(PasswordDto passwordDto)
+        {
+            if (!ModelState.IsValid)
+            {
+                return View();
+            }
+
+            // 取得當前登入的使用者
+            var appUser = await userManager.GetUserAsync(User);
+            if (appUser == null)
+            {
+                return RedirectToAction("Index", "Home");
+            }
+
+            // 更新密碼
+            var result = await userManager.ChangePasswordAsync(
+                appUser, passwordDto.CurrentPassword, passwordDto.NewPassword
+             );
+
+            if (result.Succeeded)
+            {
+                ViewBag.SuccessMessage = "Password updated successfully!";
+            }
+            else
+            {
+                ViewBag.ErrorMessage = "Error: " + result.Errors.First().Description;
+            }
+
+            return View();
+        }
+
+        public IActionResult AccessDenied()
+        {
+            return RedirectToAction("Index", "Home");
+        }
+
+        public IActionResult ForgotPassword()
+        {
+            if (signInManager.IsSignedIn(User))
+            {
+                return RedirectToAction("Index", "Home");
+            }
+
+            return View();
+        }
+
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="email">收件者 Email（必須是註冊帳號）。</param>
+        /// <param name="emailSender">
+        /// 從 DI 容器解析的寄信服務（<see cref="IEmailSender"/>）。
+        /// [FromServices] 屬性表示這個參數將從 DI 容器中解析。
+        /// <returns></returns>
+        [HttpPost]
+        public async Task<IActionResult> ForgotPassword([Required, EmailAddress] string email, [FromServices] IEmailSenderEx sender)
+        {
+            if (signInManager.IsSignedIn(User))
+            {
+                return RedirectToAction("Index", "Home");
+            }
+
+            ViewBag.Email = email;
+
+            if (!ModelState.IsValid)
+            {
+                ViewBag.EmailError = ModelState["email"]?.Errors.First().ErrorMessage ?? "Invalid Email Address";
+                return View();
+            }
+
+            var user = await userManager.FindByEmailAsync(email);
+
+            if (user != null)
+            {
+                // 產生重設密碼的 token
+                var token = await userManager.GeneratePasswordResetTokenAsync(user);
+                // 建立重設密碼的連結，若無法產生，則回傳 "URL Error"
+                var resetUrl = Url.ActionLink("ResetPassword", "Account", new { token }) ?? "URL Error";
+
+                Console.WriteLine("Password reset link: " + resetUrl);
+
+                var html = $@"<p>您好 {email}：</p>
+                      <p>請點擊以下按鈕重設您的密碼：</p>
+                      <p><a href=""{resetUrl}"">重設我的密碼</a></p>";
+
+                await sender.SendAsync(email, "重設密碼連結", html, $"Reset link: {resetUrl}");
+            }
+
+            ViewBag.SuccessMessage = "Please check your Email account and click on the Password Reset link!";
+
+            return View();
+        }
+
+        public IActionResult ResetPassword(string? token)
+        {
+            if (signInManager.IsSignedIn(User))
+            {
+                return RedirectToAction("Index", "Home");
+            }
+
+            if (token == null)
+            {
+                return RedirectToAction("Index", "Home");
+            }
+
+            return View();
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ResetPassword(string? token, PasswordResetDto model)
+        {
+            if (signInManager.IsSignedIn(User))
+            {
+                return RedirectToAction("Index", "Home");
+            }
+
+            if (token == null)
+            {
+                return RedirectToAction("Index", "Home");
+            }
+
+            if (!ModelState.IsValid)
+            {
+                return View(model);
+            }
+
+            var user = await userManager.FindByEmailAsync(model.Email);
+
+            if (user == null)
+            {
+                ViewBag.ErrorMessage = "Token not valid!";
+                return View(model);
+            }
+
+            var result = await userManager.ResetPasswordAsync(user, token, model.Password);
+
+            if (result.Succeeded)
+            {
+                ViewBag.SuccessMessage = "Password reset successfully!";
+            }
+            else
+            {
+                foreach (var error in result.Errors)
+                {
+                    ModelState.AddModelError("", error.Description);
+                }
+            }
+
+            return View(model);
         }
     }
 }
