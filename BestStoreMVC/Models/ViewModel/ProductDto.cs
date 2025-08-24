@@ -1,7 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
 
-namespace BestStoreMVC.Models
+namespace BestStoreMVC.Models.ViewModel
 {
     public class ProductDto
     {
