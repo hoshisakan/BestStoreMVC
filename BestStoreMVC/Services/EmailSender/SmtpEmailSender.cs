@@ -61,13 +61,21 @@ namespace BestStoreMVC.Services.EmailSender
             // 建立 SMTP 連線用戶端（MailKit 版本）
             using var client = new SmtpClient();
 
+            // ⭐ 開發/測試用：先能寄再說（正式環境請移除或打通 OCSP/CRL）
+            client.CheckCertificateRevocation = false;
+
+            // ⭐ 讓 465 走 SslOnConnect；587 走 StartTLS；其他才退回 Auto（幾乎用不到）
+            var socketOptions =
+                _opt.Port == 465
+                    ? SecureSocketOptions.SslOnConnect
+                    : (_opt.UseStartTls ? SecureSocketOptions.StartTls : SecureSocketOptions.Auto);
+
             // 連線到 SMTP：Gmail 建議 587 + STARTTLS
             await client.ConnectAsync(
                 _opt.Host,                 // 例如 smtp.gmail.com
-                _opt.Port,                 // 587（或 465 走 SSLOnConnect）
-                _opt.UseStartTls           // true = 先明文連，再升級為 TLS（STARTTLS）
-                    ? SecureSocketOptions.StartTls
-                    : SecureSocketOptions.Auto);
+                _opt.Port,                 // 587（或 465）
+                socketOptions              // ← 改這個
+            );
 
             // SMTP 驗證（帳號密碼）
             // Gmail：User = 你的 Gmail、Pass = 16 碼 App Password（非登入密碼）

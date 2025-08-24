@@ -259,6 +259,7 @@ namespace BestStoreMVC.Controllers
         /// [FromServices] 屬性表示這個參數將從 DI 容器中解析。
         /// <returns></returns>
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> ForgotPassword([Required, EmailAddress] string email, [FromServices] IEmailSenderEx sender)
         {
             if (signInManager.IsSignedIn(User))
