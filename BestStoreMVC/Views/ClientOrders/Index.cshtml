@@ -1,0 +1,120 @@
+﻿@{
+}
+
+<h3 class="text-center mb-4">
+    List of Orders
+</h3>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>Units</th>
+            <th>Total</th>
+            <th>Payment Method</th>
+            <th>Payment Status</th>
+            <th>Order Status</th>
+            <th>Date</th>
+            <th>Action</th>
+        </tr>
+    </thead>
+
+    <tbody>
+        @foreach (Order order in ViewBag.Orders)
+        {
+            int count = 0;
+            decimal total = order.ShippingFee;
+
+            foreach (OrderItem item in order.Items)
+            {
+                count += item.Quantity;
+                total += item.UnitPrice * item.Quantity;
+            }
+
+            string paymentBadgeColor = "bg-danger";
+
+            if (order.PaymentStatus == "pending")
+            {
+                paymentBadgeColor = "bg-warning text-dark";
+            }
+            else if (order.PaymentStatus == "accepted")
+            {
+                paymentBadgeColor = "bg-success";
+            }
+            else if (order.PaymentStatus == "canceled")
+            {
+                paymentBadgeColor = "bg-secondary";
+            }
+
+            string orderBadgeColor = "bg-danger";
+
+            if (order.OrderStatus == "created")
+            {
+                orderBadgeColor = "bg-warning text-dark";
+            }
+            else if (order.OrderStatus == "accepted")
+            {
+                orderBadgeColor = "bg-success";
+            }
+            else if (order.OrderStatus == "canceled")
+            {
+                orderBadgeColor = "bg-secondary";
+            }
+            else if (order.OrderStatus == "shipped")
+            {
+                orderBadgeColor = "bg-primary";
+            }
+            else if (order.OrderStatus == "delivered")
+            {
+                orderBadgeColor = "bg-success";
+            }
+            else if (order.OrderStatus == "returned")
+            {
+                orderBadgeColor = "bg-info text-dark";
+            }
+            else if (order.OrderStatus == "deleted")
+            {
+                orderBadgeColor = "bg-dark";
+            }
+
+            <tr>
+                <td>@count</td>
+                <td>@(total)$</td>
+                <td>@order.PaymentMethod</td>
+                <td>
+                    <span class="badge rounded-pill @paymentBadgeColor">@order.PaymentStatus</span>
+                </td>
+                <td>
+                    <span class="badge rounded-pill @orderBadgeColor">@order.OrderStatus</span>
+                </td>
+                <td>@order.CreatedAt.ToString("MM/dd/yyyy")</td>
+                <td>
+                    <a class="btn btn-primary btn-sm" asp-controller="ClientOrders"
+                       asp-action="Details" asp-route-id="@order.Id">Details</a>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+<nav>
+    <ul class="pagination">
+        @* 由第 1 頁迴圈到總頁數（ViewBag.TotalPages） *@
+        @for (int i = 1; i <= ViewBag.TotalPages; i++)
+        {
+            @* 儲存是否為當前頁所需的樣式名稱（預設空字串） *@
+            string active = "";
+
+            @* 當前迴圈頁碼 i 等於目前頁（ViewBag.PageIndex）時，套用 active 樣式 *@
+            if (i == ViewBag.PageIndex)
+            {
+                active = "active";
+            }
+
+            @* 分頁項目 li；class 由 'page-item' 加上動態的 active *@
+            <li class="page-item @active">
+                @* 分頁連結；使用 asp-route-pageIndex 帶入目前頁碼 i，連結文字顯示頁碼 *@
+                <a class="page-link" asp-route-pageIndex="@i">@i</a>
+            </li>
+        }
+    </ul>
+</nav>
