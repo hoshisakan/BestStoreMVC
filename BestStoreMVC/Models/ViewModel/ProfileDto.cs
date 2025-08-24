@@ -1,8 +1,8 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-namespace BestStoreMVC.Models
+namespace BestStoreMVC.Models.ViewModel
 {
-    public class RegisterDto
+    public class ProfileDto
     {
         [Required(ErrorMessage = "The First Name field is required"), MaxLength(100)]
         public string FirstName { get; set; } = "";
@@ -18,13 +18,5 @@ namespace BestStoreMVC.Models
 
         [Required, MaxLength(200)]
         public string Address { get; set; } = "";
-
-        [Required, MaxLength(100)]
-        //[RegularExpression(@"^(?=.*\d).+$", ErrorMessage = "Passwords must have at least one digit (0-9).")]
-        public string Password { get; set; } = "";
-
-        [Required(ErrorMessage = "The Confirm Password field is required")]
-        [Compare("Password", ErrorMessage = "The password and confirmation password do not match")]
-        public string ConfirmPassword { get; set; } = "";
     }
 }

@@ -1,4 +1,5 @@
 ﻿using BestStoreMVC.Models;
+using BestStoreMVC.Models.ViewModel;
 using BestStoreMVC.Services.EmailSender;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;

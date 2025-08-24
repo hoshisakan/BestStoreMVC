@@ -1,4 +1,5 @@
-﻿@using Microsoft.AspNetCore.Identity
+﻿@using BestStoreMVC.Services.Helper
+@using Microsoft.AspNetCore.Identity
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -12,6 +13,134 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
 </head>
 <body>
+    <script>
+        // 取得購物車（JSON 物件），若解析失敗則回傳空物件 {}
+        function getShoppingCart() {
+            // document.cookie 取得 cookie 字串，格式為 "key1=value1; key2=value2; ..."
+            const cookieName = "shopping_cart";
+            let cookiesArray = document.cookie.split(';'); // 以分號切成多個 cookie 片段
+
+            for (let i = 0; i < cookiesArray.length; i++) {
+                let cookie = cookiesArray[i]; // 逐一檢視每個 cookie 片段（通常會有前導空白）
+
+                // 用 includes 簡單判斷是否含有指定名稱（注意：可能會誤匹配相似前綴）
+                if (cookie.includes(cookieName)) {
+                    // 取出等號後面的值（= 右邊是 base64 的 JSON）
+                    let cookie_value = cookie.substring(cookie.indexOf('=') + 1);
+
+                    try {
+                        // 先 base64 解碼，再 JSON.parse 轉回物件
+                        let cart = JSON.parse(atob(cookie_value));
+                        return cart; // 成功即回傳購物車物件
+                    } catch (exception) {
+                        // 解碼或解析失敗就跳出迴圈，最後回傳空物件
+                        break;
+                    }
+                }
+            }
+
+            // 找不到 / 解析失敗：回傳空購物車
+            return {};
+        }
+
+        // 將購物車物件存回 cookie
+        function saveCart(cart) {
+            // 先把物件轉成 JSON，再做 base64（字串安全存於 cookie）
+            let carStr = btoa(JSON.stringify(cart));
+
+            // 設定 cookie 過期時間
+            let d = new Date();
+            d.setDate(d.getDate() + 365); // 一年後到期
+            let expires = d.toUTCString(); // 轉成 UTC 字串
+
+            // 寫入 cookie：指定路徑、SameSite、Secure（需 HTTPS）
+            document.cookie = "shopping_cart=" + carStr + ";expires=" + expires + ";path=/; SameSite=Strict; Secure";
+        }
+
+        // 點擊加入購物車按鈕後執行：更新數量、儲存 cookie、更新 UI
+        function addToCart(button, id) {
+            let cart = getShoppingCart(); // 取出現有購物車（物件）
+
+            let quantity = cart[id]; // 讀取此商品目前數量（可能是 undefined）
+
+            if (isNaN(quantity)) {
+                cart[id] = 1; // 沒有數量或非數字：設為 1
+            }
+            else {
+                cart[id] = Number(quantity) + 1; // 否則轉數字後 +1
+            }
+
+            saveCart(cart); // 存回 cookie
+            button.innerHTML = "Added <i class='bi bi-check-lg'></i>"; // 按鈕文字顯示已加入
+
+            let cartSize = 0; // 統計購物車總數量
+
+            // 逐一累加每個品項的數量
+            for (var cartItem of Object.entries(cart)) {
+                quantity = cartItem[1]; // cartItem = [key, value]，value 是數量
+
+                if (isNaN(quantity)) {
+                    continue; // 非數字跳過，以免 NaN 影響加總
+                }
+                cartSize += Number(quantity); // 累加數量
+            }
+
+            // 更新畫面上顯示購物車數量的元素
+            document.getElementById("CartSize").innerHTML = cartSize;
+        }
+
+        function increase(id)
+        {
+            let cart = getShoppingCart();
+
+            let quantity = cart[id];
+
+            if (isNaN(quantity))
+            {
+                cart[id] = 1;
+            }
+            else {
+                cart[id] = Number(quantity) + 1;
+            }
+
+            saveCart(cart);
+            location.reload();
+        }
+
+        function decrease(id)
+        {
+            let cart = getShoppingCart();
+
+            let quantity = cart[id];
+
+            if (isNaN(quantity))
+            {
+                return;
+            }
+
+            quantity = Number(quantity);
+
+            if (quantity > 1)
+            {
+                cart[id] = quantity - 1;
+                saveCart(cart);
+                location.reload();
+            }
+        }
+
+        function remove(id)
+        {
+            let cart = getShoppingCart();
+
+            if (cart[id])
+            {
+                delete cart[id];
+                saveCart(cart);
+                location.reload();
+            }
+        }
+    </script>
+
     <header>
         <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow">
             <div class="container-fluid">
@@ -31,10 +160,18 @@
                             <a class="nav-link text-dark" asp-area="" asp-controller="Store" asp-action="Index">Store</a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-controller="Products" asp-action="Index">Products</a>
-                        </li>
-                        <li class="nav-item">
                             <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
+                        </li>
+                    </ul>
+
+                    <ul class="navbar-nav me-2">
+                        <li class="nav-item">
+                            <a class="nav-link text-dark" asp-area="" asp-controller="Cart" asp-action="Index">
+                                <i class="bi bi-cart4 text-danger h3"></i>
+                                <span id="CartSize" class="badge rounded-pill bg-danger" style="vertical-align: top">
+                                    @CartHelper.GetCartSize(Context.Request, Context.Response)
+                                </span>
+                            </a>
                         </li>
                     </ul>
 
@@ -90,7 +227,7 @@
                                 </li>
                             </ul>
                         }
-                    } 
+                    }
                     else
                     {
                         <ul class="navbar-nav">
@@ -106,7 +243,7 @@
             </div>
         </nav>
     </header>
-    @if(ViewData["HomePage"] == null)
+    @if (ViewData["HomePage"] == null)
     {
         <div class="container mt-4 mb-3">
             <main role="main" class="pb-3">
