@@ -38,7 +38,7 @@ namespace BestStoreMVC.Controllers
 
             if (!validOrderBy.Contains(orderBy))
             {
-                column = "desc";
+                orderBy = "desc";
             }
 
             if (column == "Name")
