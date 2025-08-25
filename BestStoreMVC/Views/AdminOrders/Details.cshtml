@@ -312,9 +312,11 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <p>
-                    @Model.PaymentDetails
-                </p>
+                @* <p style="white-space: pre-wrap; font-family: monospace">
+                    @Html.Raw(@Model.PaymentDetails)
+                </p> *@
+
+                <pre id="payment-details" style="white-space: pre-wrap; font-family: monospace"></pre>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
@@ -322,3 +324,18 @@
         </div>
     </div>
 </div>
+
+<script>
+    // 取得 JSON 字串
+    const paymentDetailsRaw = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.PaymentDetails ?? ""));
+
+    let pretty = paymentDetailsRaw;
+    try {
+      // 將「JSON 字串」先 parse 成物件
+      const obj = JSON.parse(paymentDetailsRaw);
+      // 再 stringify 成漂亮縮排
+      pretty = JSON.stringify(obj, null, 2);
+    } catch { /* 不是合法 JSON 就保持原樣 */ }
+
+    document.getElementById("payment-details").textContent = pretty;
+</script>
