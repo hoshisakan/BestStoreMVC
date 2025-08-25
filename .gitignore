@@ -5,3 +5,5 @@
 /.vs
 /BestStoreMVC/bin/Debug/net8.0
 /BestStoreMVC/obj
+/BestStoreMVC_structure.txt
+/Refactoring.md
