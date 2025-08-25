@@ -59,7 +59,7 @@ namespace BestStoreMVC.Controllers
                 return RedirectToAction("Index");
             }
 
-            ViewBag.NumsOrder = context.Orders.Where(o => o.ClientId == order.ClientId).Count();
+            ViewBag.NumOrders = context.Orders.Where(o => o.ClientId == order.ClientId).Count();
 
             return View(order);
         }
