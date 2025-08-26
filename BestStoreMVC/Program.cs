@@ -32,6 +32,36 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(
 builder.Services.Configure<SmtpOptions>(builder.Configuration.GetSection("Smtp"));
 builder.Services.AddScoped<IEmailSenderEx, SmtpEmailSender>();
 
+// 同時支援 appsettings 與環境變數
+string? certPath =
+    builder.Configuration["Kestrel:Certificates:Default:Path"] ??
+    builder.Configuration["ASPNETCORE_Kestrel__Certificates__Default__Path"];
+string? certPwd =
+    builder.Configuration["Kestrel:Certificates:Default:Password"] ??
+    builder.Configuration["ASPNETCORE_Kestrel__Certificates__Default__Password"];
+
+builder.WebHost.UseKestrel(options =>
+{
+    // options.ListenAnyIP(5000); // HTTP
+
+    if (!string.IsNullOrWhiteSpace(certPath) && !string.IsNullOrWhiteSpace(certPwd))
+    {
+        var fullPath = Path.IsPathRooted(certPath)
+            ? certPath
+            : Path.Combine(builder.Environment.ContentRootPath, certPath);
+
+        if (File.Exists(fullPath))
+            options.ListenAnyIP(5001, listen => listen.UseHttps(fullPath, certPwd));
+        else
+            Console.WriteLine($"[WARN] cert not found: {fullPath}. HTTPS disabled.");
+    }
+    else
+    {
+        Console.WriteLine("[INFO] no cert config. HTTPS disabled.");
+    }
+});
+
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
