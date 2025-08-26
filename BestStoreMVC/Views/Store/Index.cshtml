@@ -7,7 +7,7 @@
 
 <form class="row g-3 mb-3">
     <div class="col-lg-2 col-md-4">
-        <select class="form-select" name="brand" asp-for="Brand" onchange="this.form.submit()">
+        <select class="form-select" asp-for="Brand" onchange="this.form.submit()">
             <option value="">All Brands</option>
             <option value="Samsung">Samsung</option>
             <option value="Apple">Apple</option>
@@ -16,7 +16,7 @@
         </select>
     </div>
     <div class="col-lg-2 col-md-4">
-        <select class="form-select" name="category" asp-for="Category" onchange="this.form.submit()">
+        <select class="form-select" asp-for="Category" onchange="this.form.submit()">
             <option value="">All Categories</option>
             <option value="Phones">Phones</option>
             <option value="Computers">Computers</option>
@@ -27,14 +27,14 @@
         </select>
     </div>
     <div class="col-lg-2 col-md-4">
-        <select class="form-select" name="sort" asp-for="Sort" onchange="this.form.submit()">
+        <select class="form-select" asp-for="Sort" onchange="this.form.submit()">
             <option value="newest">Order By Newest</option>
             <option value="price_asc">Price: Low to High</option>
             <option value="price_desc">Price: High to Low</option>
         </select>
     </div>
     <div class="col-lg-6 col-md-12 d-flex">
-        <input class="form-control me-2" name="search" asp-for="Search" placeholder="Search by Name">
+        <input class="form-control me-2" asp-for="Search" placeholder="Search by Name">
         <button class="btn btn-outline-success" type="submit">Search</button>
     </div>
 </form>
