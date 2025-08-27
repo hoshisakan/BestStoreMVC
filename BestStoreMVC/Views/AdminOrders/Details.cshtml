@@ -10,38 +10,38 @@
     {
         paymentBadgeColor = "bg-success";
     }
-    else if (Model.PaymentStatus == "canceled")
+    else if (Model.PaymentStatus == "rejected")
     {
-        paymentBadgeColor = "bg-secondary";
+        paymentBadgeColor = "bg-danger";
+    }
+    else if (Model.PaymentStatus == "refunded")
+    {
+        paymentBadgeColor = "bg-info text-dark";
     }
 
     string orderBadgeColor = "bg-danger";
 
     if (Model.OrderStatus == "created")
     {
+        orderBadgeColor = "bg-secondary";
+    }
+    else if (Model.OrderStatus == "pending")
+    {
         orderBadgeColor = "bg-warning text-dark";
     }
-    else if (Model.OrderStatus == "accepted")
+    else if (Model.OrderStatus == "processing")
     {
-        orderBadgeColor = "bg-success";
-    }
-    else if (Model.OrderStatus == "canceled")
-    {
-        orderBadgeColor = "bg-secondary";
+        orderBadgeColor = "bg-primary";
     }
     else if (Model.OrderStatus == "shipped")
     {
-        orderBadgeColor = "bg-primary";
+        orderBadgeColor = "bg-info";
     }
     else if (Model.OrderStatus == "delivered")
     {
         orderBadgeColor = "bg-success";
     }
-    else if (Model.OrderStatus == "returned")
-    {
-        orderBadgeColor = "bg-info text-dark";
-    }
-    else if (Model.OrderStatus == "deleted")
+    else if (Model.OrderStatus == "cancelled")
     {
         orderBadgeColor = "bg-dark";
     }
@@ -52,6 +52,24 @@
 <h3 class="text-center mb-4">
     Order Details
 </h3>
+
+@* 顯示成功訊息 *@
+@if (TempData["SuccessMessage"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        <strong>Success!</strong> @TempData["SuccessMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+@* 顯示錯誤訊息 *@
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <strong>Error!</strong> @TempData["ErrorMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
 
 <a class="btn btn-link" asp-controller="AdminOrders" asp-action="Index">
     Orders
@@ -238,13 +256,15 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <form method="get" asp-controller="AdminOrders" asp-action="Edit">
+                <form method="post" asp-controller="AdminOrders" asp-action="Edit">
+                    @Html.AntiForgeryToken()
                     <input type="hidden" name="id" value="@Model.Id" />
                     <label>Payment Status</label>
                     <select class="form-select mb-2" name="payment_status">
                         <option value="pending" selected="@(Model.PaymentStatus == "pending")">pending</option>
                         <option value="accepted" selected="@(Model.PaymentStatus == "accepted")">accepted</option>
-                        <option value="canceled" selected="@(Model.PaymentStatus == "canceled")">canceled</option>
+                        <option value="rejected" selected="@(Model.PaymentStatus == "rejected")">rejected</option>
+                        <option value="refunded" selected="@(Model.PaymentStatus == "refunded")">refunded</option>
                     </select>
                     <button type="submit" class="btn btn-primary">Save</button>
                 </form>
@@ -264,18 +284,17 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <form method="get" asp-controller="AdminOrders" asp-action="Edit">
+                <form method="post" asp-controller="AdminOrders" asp-action="Edit">
+                    @Html.AntiForgeryToken()
                     <input type="hidden" name="id" value="@Model.Id" />
                     <label>Order Status</label>
                     <select class="form-select mb-2" name="order_status">
-                        <option value="pending" selected="@(Model.OrderStatus == "pending" ? "selected" : null)">pending</option>
                         <option value="created" selected="@(Model.OrderStatus == "created" ? "selected" : null)">created</option>
-                        <option value="accepted" selected="@(Model.OrderStatus == "accepted" ? "selected" : null)">accepted</option>
-                        <option value="canceled" selected="@(Model.OrderStatus == "canceled" ? "selected" : null)">canceled</option>
+                        <option value="pending" selected="@(Model.OrderStatus == "pending" ? "selected" : null)">pending</option>
+                        <option value="processing" selected="@(Model.OrderStatus == "processing" ? "selected" : null)">processing</option>
                         <option value="shipped" selected="@(Model.OrderStatus == "shipped" ? "selected" : null)">shipped</option>
                         <option value="delivered" selected="@(Model.OrderStatus == "delivered" ? "selected" : null)">delivered</option>
-                        <option value="returned" selected="@(Model.OrderStatus == "returned" ? "selected" : null)">returned</option>
-                        <option value="deleted" selected="@(Model.OrderStatus == "deleted" ? "selected" : null)">deleted</option>
+                        <option value="cancelled" selected="@(Model.OrderStatus == "cancelled" ? "selected" : null)">cancelled</option>
                     </select>
 
                     <button type="submit" class="btn btn-primary">Save</button>

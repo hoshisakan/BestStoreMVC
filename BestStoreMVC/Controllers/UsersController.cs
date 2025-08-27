@@ -1,50 +1,55 @@
 ﻿using BestStoreMVC.Models;
+using BestStoreMVC.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
-using System.Linq;
-using System.Threading.Tasks;
 
 namespace BestStoreMVC.Controllers
 {
-    [Authorize(Roles = "admin")]
-    [Route("/Admin/[controller]/{action=Index}/{id?}")]
+    /// <summary>
+    /// 使用者管理控制器
+    /// 處理所有與使用者管理相關的 HTTP 請求
+    /// </summary>
+    [Authorize(Roles = "admin")] // 只有 admin 角色可以存取此控制器
+    [Route("/Admin/[controller]/{action=Index}/{id?}")] // 設定路由格式
     public class UsersController : Controller
     {
-        private readonly UserManager<ApplicationUser> userManager;
-        private readonly RoleManager<IdentityRole> roleManager;
-        private readonly int pageSize = 5;
+        // 使用者服務，用於處理使用者相關的業務邏輯
+        private readonly IUserService _userService;
+        
+        // 使用者管理器，用於取得目前登入的使用者資訊
+        private readonly UserManager<ApplicationUser> _userManager;
+        
+        // 每頁顯示的使用者數量
+        private readonly int _pageSize = 5;
 
-
-        public UsersController(UserManager<ApplicationUser> userManager, RoleManager<IdentityRole> roleManager)
+        /// <summary>
+        /// 建構函式，注入必要的依賴
+        /// </summary>
+        /// <param name="userService">使用者服務</param>
+        /// <param name="userManager">使用者管理器</param>
+        public UsersController(IUserService userService, UserManager<ApplicationUser> userManager)
         {
-            this.userManager = userManager;
-            this.roleManager = roleManager;
+            _userService = userService;
+            _userManager = userManager;
         }
-        public IActionResult Index(int? pageIndex)
-        {
-            // 建立查詢：從 UserManager 取出所有使用者，依建立時間（CreatedAt）由新到舊排序
-            IQueryable<ApplicationUser> query = userManager.Users.OrderByDescending(u => u.CreatedAt);
 
+        /// <summary>
+        /// 顯示使用者列表頁面
+        /// </summary>
+        /// <param name="pageIndex">頁碼</param>
+        /// <returns>使用者列表頁面</returns>
+        public async Task<IActionResult> Index(int? pageIndex)
+        {
             // 未提供頁碼或頁碼小於 1 時，一律視為第 1 頁
             if (pageIndex == null || pageIndex < 1)
             {
                 pageIndex = 1;
             }
 
-            // 取得目前查詢的總筆數（在 EF Core 下會轉譯為 SQL 的 COUNT(*)）
-            decimal totalCount = query.Count();
-
-            // 計算總頁數：以每頁筆數 pageSize 為分母，向上取整（不足一頁仍算一頁）
-            int totalPages = (int)Math.Ceiling(totalCount / pageSize);
-
-            // 分頁實作：跳過前 (pageIndex - 1) * pageSize 筆，接著取 pageSize 筆
-            // 注意：pageIndex 是 int?，前面已保證不為 null，故此處轉為 int 使用
-            query = query.Skip((int)(pageIndex - 1) * pageSize).Take(pageSize);
-
-            // 送出查詢並將結果載入記憶體成為清單（此時才真正執行 SQL）
-            var users = query.ToList();
+            // 透過服務層取得分頁的使用者清單和總頁數
+            var (users, totalPages) = await _userService.GetPagedUsersAsync((int)pageIndex, _pageSize);
 
             // 將目前頁碼與總頁數放入 ViewBag，供 View 產生分頁 UI 使用
             ViewBag.PageIndex = pageIndex;
@@ -54,131 +59,125 @@ namespace BestStoreMVC.Controllers
             return View(users);
         }
 
+        /// <summary>
+        /// 顯示使用者詳細資料頁面
+        /// </summary>
+        /// <param name="id">使用者 ID</param>
+        /// <returns>使用者詳細資料頁面</returns>
         public async Task<IActionResult> Details(string? id)
         {
+            // 檢查 ID 是否為空
             if (string.IsNullOrEmpty(id))
             {
+                // 如果 ID 為空，重導向到使用者列表頁面
                 return RedirectToAction("Index", "Users");
             }
 
-            var appUser = await userManager.FindByIdAsync(id);
+            // 透過服務層取得使用者詳細資料
+            var userDetails = await _userService.GetUserDetailsAsync(id);
 
-            if (appUser == null)
+            // 如果找不到使用者，重導向到使用者列表頁面
+            if (userDetails == null)
             {
                 return RedirectToAction("Index", "Users");
             }
 
-            ViewBag.Roles = await userManager.GetRolesAsync(appUser);
+            // 將使用者的角色清單放入 ViewBag
+            ViewBag.Roles = userDetails.Roles;
 
-            // 從 RoleManager 取得所有角色，轉成 List
-            var availableRoles = roleManager.Roles.ToList();
-
-            // 建立一個 SelectListItem 的集合，用來存放下拉選單項目
-            var items = new List<SelectListItem>();
-
-            // 逐一迭代所有可用的角色
-            foreach (var role in availableRoles)
+            // 將角色選項清單轉換為 SelectListItem 格式並放入 ViewBag
+            var selectItems = userDetails.RoleOptions.Select(option => new Microsoft.AspNetCore.Mvc.Rendering.SelectListItem
             {
-                // 將每個角色加入到 items 集合中
-                items.Add(
-                    new SelectListItem
-                    {
-                        // 顯示在下拉選單上的文字，使用角色的 NormalizedName（通常是大寫名稱）
-                        Text = role.NormalizedName,
+                Text = option.Text,
+                Value = option.Value,
+                Selected = option.Selected
+            }).ToList();
 
-                        // 下拉選單項目的值，使用角色的原始名稱（區分大小寫）
-                        Value = role.Name,
+            ViewBag.SelectItems = selectItems;
 
-                        // 判斷目前的使用者是否屬於這個角色，如果是就勾選（Selected = true）
-                        Selected = await userManager.IsInRoleAsync(appUser, role.Name!)
-                    }
-                );
-            }
-
-            // 將建立好的下拉選單項目集合存放在 ViewBag 中，供 View 使用
-            ViewBag.SelectItems = items;
-
-            return View(appUser);
+            // 傳回使用者詳細資料頁面，以使用者物件作為模型
+            return View(userDetails.User);
         }
-    
+
+        /// <summary>
+        /// 更新使用者角色
+        /// </summary>
+        /// <param name="id">使用者 ID</param>
+        /// <param name="newRole">新角色名稱</param>
+        /// <returns>重導向到適當的頁面</returns>
         public async Task<IActionResult> EditRole(string? id, string? newRole)
         {
+            // 檢查參數是否為空
             if (id == null || newRole == null)
             {
-                return RedirectToAction("Index", "Users");
-            }
-
-            // 檢查角色是否存在
-            var roleExist = await roleManager.RoleExistsAsync(newRole);
-            // 依據 id 找到對應的使用者
-            var appUser = await userManager.FindByIdAsync(id);
-
-            // 如果角色不存在，或找不到使用者，直接返回使用者列表頁
-            if (!roleExist || appUser == null)
-            {
+                // 如果參數為空，重導向到使用者列表頁面
                 return RedirectToAction("Index", "Users");
             }
 
             // 取得目前登入的使用者
-            var currentUser = await userManager.GetUserAsync(User);
-
-            // 防止自己修改自己的角色（避免把自己從 admin 移掉導致鎖死）
-            if (currentUser!.Id == appUser.Id)
+            var currentUser = await _userManager.GetUserAsync(User);
+            if (currentUser == null)
             {
-                TempData["ErrorMessage"] = "You cannot update your own role!";
-                // 如果是自己，就回到該使用者的詳細資料頁
-                return RedirectToAction("Details", "Users", new { id = id });
+                // 如果無法取得目前使用者，重導向到使用者列表頁面
+                return RedirectToAction("Index", "Users");
             }
 
-            // 更新使用者角色
-            var userRoles = await userManager.GetRolesAsync(appUser);
-            // 移除使用者所有角色
-            await userManager.RemoveFromRolesAsync(appUser, userRoles);
-            // 新增使用者新角色
-            await userManager.AddToRoleAsync(appUser, newRole);
+            // 透過服務層更新使用者角色
+            var result = await _userService.UpdateUserRoleAsync(id, newRole, currentUser.Id);
 
-            TempData["SuccessMessage"] = "User Role updated successfully";
+            // 根據操作結果設定適當的訊息
+            if (result.IsSuccess)
+            {
+                // 操作成功，設定成功訊息
+                TempData["SuccessMessage"] = result.SuccessMessage;
+            }
+            else
+            {
+                // 操作失敗，設定錯誤訊息
+                TempData["ErrorMessage"] = result.ErrorMessage;
+            }
 
+            // 重導向到使用者詳細資料頁面
             return RedirectToAction("Details", "Users", new { id = id });
         }
 
+        /// <summary>
+        /// 刪除使用者帳戶
+        /// </summary>
+        /// <param name="id">使用者 ID</param>
+        /// <returns>重導向到適當的頁面</returns>
         public async Task<IActionResult> DeleteAccount(string? id)
         {
+            // 檢查 ID 是否為空
             if (id == null)
             {
-                return RedirectToAction("Index", "Users");
-            }
-
-            var appUser = await userManager.FindByIdAsync(id);
-
-            if (appUser == null)
-            {
+                // 如果 ID 為空，重導向到使用者列表頁面
                 return RedirectToAction("Index", "Users");
             }
 
             // 取得目前登入的使用者
-            var currentUser = await userManager.GetUserAsync(User);
-
-            // 防止自己刪除自己的角色
-            if (currentUser!.Id == appUser.Id)
+            var currentUser = await _userManager.GetUserAsync(User);
+            if (currentUser == null)
             {
-                TempData["ErrorMessage"] = "You cannot delete your own account!";
-                // 如果是自己，就回到該使用者的詳細資料頁
-                return RedirectToAction("Details", "Users", new { id = id });
-            }
-
-            // 刪除使用者
-            var result = await userManager.DeleteAsync(appUser);
-
-            // 如果刪除成功
-            if (result.Succeeded)
-            {
+                // 如果無法取得目前使用者，重導向到使用者列表頁面
                 return RedirectToAction("Index", "Users");
             }
 
-            TempData["ErrorMessage"] = "Unable to delete this account: " + result.Errors.First().Description;
-            
-            return RedirectToAction("Details", "Users", new { id = id });
+            // 透過服務層刪除使用者
+            var result = await _userService.DeleteUserAsync(id, currentUser.Id);
+
+            // 根據操作結果設定適當的訊息
+            if (result.IsSuccess)
+            {
+                // 刪除成功，重導向到使用者列表頁面
+                return RedirectToAction("Index", "Users");
+            }
+            else
+            {
+                // 刪除失敗，設定錯誤訊息並重導向到使用者詳細資料頁面
+                TempData["ErrorMessage"] = result.ErrorMessage;
+                return RedirectToAction("Details", "Users", new { id = id });
+            }
         }
     }
 }

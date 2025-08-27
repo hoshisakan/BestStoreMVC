@@ -1,231 +1,141 @@
 ﻿using BestStoreMVC.Models;
 using BestStoreMVC.Services;
-using BestStoreMVC.Services.Helper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using System.Text.Json.Nodes;
-using System.Threading.Tasks;
 
 namespace BestStoreMVC.Controllers
 {
-    [Authorize]
+    /// <summary>
+    /// 結帳控制器
+    /// 處理所有與結帳相關的 HTTP 請求
+    /// </summary>
+    [Authorize] // 需要登入才能存取此控制器
     public class CheckoutController : Controller
     {
-        private string PaypalClientId { get; set; } = "";
-        private string PayPalSecret { get; set; } = "";
-        private string PaypalUrl { get; set; } = "";
+        // 結帳服務，用於處理結帳相關的業務邏輯
+        private readonly ICheckoutService _checkoutService;
+        
+        // 使用者管理器，用於取得目前登入的使用者資訊
+        private readonly UserManager<ApplicationUser> _userManager;
 
-        private readonly decimal shippingFee;
-        private readonly ApplicationDbContext context;
-        private readonly UserManager<ApplicationUser> userManager;
-
-
-        public CheckoutController(IConfiguration configuration, ApplicationDbContext context, UserManager<ApplicationUser> userManager)
+        /// <summary>
+        /// 建構函式，注入必要的依賴
+        /// </summary>
+        /// <param name="checkoutService">結帳服務</param>
+        /// <param name="userManager">使用者管理器</param>
+        public CheckoutController(ICheckoutService checkoutService, UserManager<ApplicationUser> userManager)
         {
-            PaypalClientId = configuration["PaypalSettings:ClientId"]!;
-            PayPalSecret = configuration["PaypalSettings:Secret"]!;
-            PaypalUrl = configuration["PaypalSettings:Url"]!;
-            shippingFee = configuration.GetValue<decimal>("CartSetting:ShippingFee");
-            this.context = context;
-            this.userManager = userManager;
-        }
-
-        public IActionResult Index()
-        {
-            List<OrderItem> cartItems = CartHelper.GetCartItems(Request, Response, context);
-            decimal total = CartHelper.GetSubtotal(cartItems);
-
-            string deliveryAddress = TempData["DeliveryAddress"] as string ?? "";
-            TempData.Keep();
-
-            ViewBag.DeliveryAddress = deliveryAddress;
-            ViewBag.Total = total;
-            ViewBag.PaypalClientId = PaypalClientId;
-
-            return View();
-        }
-
-        [HttpPost]
-        public async Task<IActionResult> CreateOrder()
-        {
-            List<OrderItem> cartItems = CartHelper.GetCartItems(Request, Response, context);
-            decimal totalAmount = CartHelper.GetSubtotal(cartItems) + shippingFee;
-
-            // 創建請求正文
-            JsonObject createOrderRequest = new JsonObject();
-            createOrderRequest["intent"] = "CAPTURE";
-
-            JsonObject amount = new JsonObject();
-            amount["currency_code"] = "USD";
-            amount["value"] = totalAmount;
-
-            JsonObject purchaseUnit1 = new JsonObject();
-            purchaseUnit1["amount"] = amount;
-
-            JsonArray purchaseUnits = new JsonArray();
-            purchaseUnits.Add(purchaseUnit1);
-
-            createOrderRequest["purchase_units"] = purchaseUnits;
-
-            // 取得 Access Token
-            string accessToken = await GetPayPalAccessToken();
-
-            if (string.IsNullOrEmpty(accessToken))
-            {
-                return new JsonResult(new { Id = "" });
-            }
-
-            string url = PaypalUrl + "/v2/checkout/orders";
-
-            using (var client = new HttpClient())
-            {
-                client.DefaultRequestHeaders.Add("Authorization", "Bearer " + accessToken);
-
-                var requestMessage = new HttpRequestMessage(HttpMethod.Post, url);
-                requestMessage.Content = new StringContent(createOrderRequest.ToJsonString(), null, "application/json");
-
-                var httpResponse = await client.SendAsync(requestMessage);
-
-                if (httpResponse.IsSuccessStatusCode)
-                {
-                    var strResponse = await httpResponse.Content.ReadAsStringAsync();
-                    var jsonResponse = JsonNode.Parse(strResponse);
-
-                    if (jsonResponse != null)
-                    {
-                        var paypalOrderId = jsonResponse["id"]?.ToString() ?? "";
-                        return new JsonResult(new { Id = paypalOrderId });
-                    }
-                }
-            }
-
-            return new JsonResult(new { Id = "" });
-        }
-
-        [HttpPost]
-        public async Task<IActionResult> CompleteOrder([FromBody] JsonObject data)
-        {
-            var orderId = data["orderID"]?.ToString();
-            var deliveryAddress = data?["deliveryAddress"]?.ToString();
-
-            if (string.IsNullOrEmpty(orderId) || string.IsNullOrEmpty(deliveryAddress))
-            {
-                return new JsonResult("error");
-            }
-
-            // 取得 Access Token
-            string accessToken = await GetPayPalAccessToken();
-
-            if (string.IsNullOrEmpty(accessToken))
-            {
-                return new JsonResult("error");
-            }
-
-            string url = PaypalUrl + $"/v2/checkout/orders/{orderId}/capture";
-
-            using (var client = new HttpClient())
-            {
-                client.DefaultRequestHeaders.Add("Authorization", "Bearer " + accessToken);
-                var requestMessage = new HttpRequestMessage(HttpMethod.Post, url);
-                requestMessage.Content = new StringContent("", null, "application/json");
-
-                var httpResponse = await client.SendAsync(requestMessage);
-                
-                if (httpResponse.IsSuccessStatusCode)
-                {
-                    var strResponse = await httpResponse.Content.ReadAsStringAsync();
-                    var jsonResponse = JsonNode.Parse(strResponse);
-                    if (jsonResponse != null)
-                    {
-                        var paypalOrderStatus = jsonResponse["status"]?.ToString() ?? "";
-                        if (paypalOrderStatus == "COMPLETED")
-                        {
-                            // 建立訂單，並存入資料庫
-                            await SaveOrder(jsonResponse.ToJsonString(), deliveryAddress);
-
-                            return new JsonResult("success");
-                        }
-                    }
-                }
-            }
-
-            return new JsonResult("error");
-        }
-
-        private async Task SaveOrder(string paypalResponse, string deliveryAddress)
-        {
-            // 取得購物車內容
-            var cartItems = CartHelper.GetCartItems(Request, Response, context);
-
-            // 取得目前使用者
-            var appUser = await userManager.GetUserAsync(User);
-
-            if (appUser == null)
-            {
-                return;
-            }
-
-            // 建立訂單
-            var order = new Order
-            {
-                ClientId = appUser.Id,
-                Items = cartItems,
-                ShippingFee = shippingFee,
-                DeliveryAddress = deliveryAddress,
-                PaymentMethod = "paypal",
-                PaymentStatus = "accepted",
-                PaymentDetails = paypalResponse,
-                OrderStatus = "pending",
-                CreatedAt = DateTime.Now
-            };
-
-            context.Orders.Add(order);
-            await context.SaveChangesAsync();
-
-            // 清空購物車
-            Response.Cookies.Delete("shopping_cart");
+            _checkoutService = checkoutService;
+            _userManager = userManager;
         }
 
         /// <summary>
-        /// 測試取得 Access Token
+        /// 顯示結帳頁面
         /// </summary>
-        /// <returns></returns>
-        //public async Task<string> Token()
-        //{
-        //    return await GetPayPalAccessToken();
-        //}
-
-        private async Task<string> GetPayPalAccessToken()
+        /// <returns>結帳頁面</returns>
+        public IActionResult Index()
         {
-            string accessToken = "";
+            // 從 TempData 取得送貨地址
+            string deliveryAddress = TempData["DeliveryAddress"] as string ?? "";
+            TempData.Keep(); // 保持 TempData 資料，供下次請求使用
 
-            string url = PaypalUrl + "/v1/oauth2/token";
+            // 透過服務層取得結帳頁面資料
+            var (cartItems, total, paypalClientId) = _checkoutService.GetCheckoutData(Request, Response, deliveryAddress);
 
-            using (var client = new HttpClient())
+            // 將結帳資訊放入 ViewBag，供 View 使用
+            ViewBag.DeliveryAddress = deliveryAddress;
+            ViewBag.Total = total;
+            ViewBag.PaypalClientId = paypalClientId;
+
+            // 傳回結帳頁面
+            return View();
+        }
+
+        /// <summary>
+        /// 建立 PayPal 訂單
+        /// </summary>
+        /// <returns>PayPal 訂單建立結果</returns>
+        [HttpPost] // 只接受 POST 請求
+        [ValidateAntiForgeryToken] // 防止 CSRF 攻擊
+        public async Task<IActionResult> CreateOrder()
+        {
+            try
             {
-                string credentials64 = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes($"{PaypalClientId}:{PayPalSecret}"));
-                client.DefaultRequestHeaders.Add("Authorization", $"Basic {credentials64}");
+                // 透過服務層建立 PayPal 訂單
+                var paypalOrderId = await _checkoutService.CreatePayPalOrderAsync(Request, Response);
 
-                var requestMessage = new HttpRequestMessage(HttpMethod.Post, url);
-                requestMessage.Content = new StringContent("grant_type=client_credentials", null, "application/x-www-form-urlencoded");
-
-                var httpResponse = await client.SendAsync(requestMessage);
-
-                if (httpResponse.IsSuccessStatusCode)
+                // 檢查是否成功建立訂單
+                if (string.IsNullOrEmpty(paypalOrderId))
                 {
-                    var strResponse = await httpResponse.Content.ReadAsStringAsync();
+                    return BadRequest(new { error = "Failed to create PayPal order" });
+                }
 
-                    var jsonResponse = JsonNode.Parse(strResponse);
+                // 回傳 PayPal 訂單 ID（JSON 格式）
+                return new JsonResult(new { Id = paypalOrderId });
+            }
+            catch (Exception ex)
+            {
+                // 記錄錯誤並回傳錯誤訊息
+                return StatusCode(500, new { error = "Internal server error", message = ex.Message });
+            }
+        }
 
-                    if (jsonResponse != null)
-                    {
-                        accessToken = jsonResponse["access_token"]?.ToString() ?? "";
-                    }
+        /// <summary>
+        /// 完成 PayPal 付款
+        /// </summary>
+        /// <param name="data">付款資料</param>
+        /// <returns>付款完成結果</returns>
+        [HttpPost] // 只接受 POST 請求
+        [ValidateAntiForgeryToken] // 防止 CSRF 攻擊
+        public async Task<IActionResult> CompleteOrder([FromBody] JsonObject data)
+        {
+            try
+            {
+                // 從請求資料中取得 PayPal 訂單 ID 和送貨地址
+                var orderId = data["orderID"]?.ToString();
+                var deliveryAddress = data?["deliveryAddress"]?.ToString();
+
+                // 驗證必要資料
+                if (string.IsNullOrEmpty(orderId))
+                {
+                    return BadRequest(new { error = "Order ID is required" });
+                }
+
+                if (string.IsNullOrEmpty(deliveryAddress))
+                {
+                    return BadRequest(new { error = "Delivery address is required" });
+                }
+
+                // 取得目前登入的使用者 ID
+                var currentUser = await _userManager.GetUserAsync(User);
+                if (currentUser == null)
+                {
+                    return Unauthorized(new { error = "User not authenticated" });
+                }
+
+                // 將使用者 ID 加入請求標頭
+                Request.Headers["X-User-ID"] = currentUser.Id;
+
+                // 透過服務層完成 PayPal 付款
+                var paymentResult = await _checkoutService.CompletePayPalPaymentAsync(orderId, deliveryAddress, Request, Response);
+
+                // 根據付款結果回傳對應的 JSON 回應
+                if (paymentResult)
+                {
+                    return new JsonResult("success");
+                }
+                else
+                {
+                    return new JsonResult("error");
                 }
             }
-
-            return accessToken;
+            catch (Exception ex)
+            {
+                // 記錄錯誤並回傳錯誤訊息
+                return StatusCode(500, new { error = "Internal server error", message = ex.Message });
+            }
         }
     }
 }

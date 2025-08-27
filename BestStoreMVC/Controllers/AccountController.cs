@@ -153,6 +153,29 @@ namespace BestStoreMVC.Controllers
             return View(profileDto);
         }
 
+        /// <summary>
+        /// 測試 Remember Me 功能
+        /// </summary>
+        /// <returns>顯示當前登入狀態和 Cookie 資訊</returns>
+        [Authorize]
+        public IActionResult TestRememberMe()
+        {
+            var isAuthenticated = User.Identity?.IsAuthenticated ?? false;
+            var userName = User.Identity?.Name ?? "Unknown";
+            var authenticationType = User.Identity?.AuthenticationType ?? "None";
+            
+            // 檢查是否有持久性 Cookie
+            var hasPersistentCookie = Request.Cookies.Any(c => c.Key.StartsWith(".AspNetCore.Identity.Application"));
+            
+            ViewBag.IsAuthenticated = isAuthenticated;
+            ViewBag.UserName = userName;
+            ViewBag.AuthenticationType = authenticationType;
+            ViewBag.HasPersistentCookie = hasPersistentCookie;
+            ViewBag.CookieCount = Request.Cookies.Count;
+            
+            return View();
+        }
+
         [Authorize]
         [HttpPost]
         [ValidateAntiForgeryToken]
@@ -310,6 +333,7 @@ namespace BestStoreMVC.Controllers
                 return RedirectToAction("Index", "Home");
             }
 
+            ViewBag.Token = token;
             return View();
         }
 
@@ -336,7 +360,7 @@ namespace BestStoreMVC.Controllers
 
             if (user == null)
             {
-                ViewBag.ErrorMessage = "Token not valid!";
+                ViewBag.ErrorMessage = "User not found!";
                 return View(model);
             }
 
@@ -344,7 +368,9 @@ namespace BestStoreMVC.Controllers
 
             if (result.Succeeded)
             {
-                ViewBag.SuccessMessage = "Password reset successfully!";
+                // 重設成功，顯示成功訊息並重導向到登入頁面
+                TempData["SuccessMessage"] = "Password reset successfully! Please log in with your new password.";
+                return RedirectToAction("Login");
             }
             else
             {

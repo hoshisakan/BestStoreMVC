@@ -1,191 +1,128 @@
-﻿using BestStoreMVC.Models;
-using BestStoreMVC.Models.ViewModel;
+﻿using BestStoreMVC.Models.ViewModel;
 using BestStoreMVC.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace BestStoreMVC.Controllers
 {
-    [Authorize(Roles = "admin")]
-    [Route("/Admin/[controller]/{action=Index}/{id?}")]
+    /// <summary>
+    /// 產品管理控制器
+    /// 處理所有與產品管理相關的 HTTP 請求
+    /// </summary>
+    [Authorize(Roles = "admin")] // 只有 admin 角色可以存取此控制器
+    [Route("/Admin/[controller]/{action=Index}/{id?}")] // 設定路由格式
     public class ProductsController : Controller
     {
-        private readonly ApplicationDbContext context;
-        private readonly IWebHostEnvironment environment;
-        private readonly int pageSize = 5;
+        // 產品服務，用於處理產品相關的業務邏輯
+        private readonly IProductService _productService;
+        
+        // Web 主機環境，用於存取檔案系統路徑
+        private readonly IWebHostEnvironment _environment;
+        
+        // 每頁顯示的產品數量
+        private readonly int _pageSize = 5;
 
-        public ProductsController(ApplicationDbContext context, IWebHostEnvironment environment)
+        /// <summary>
+        /// 建構函式，注入必要的依賴
+        /// </summary>
+        /// <param name="productService">產品服務</param>
+        /// <param name="environment">Web 主機環境</param>
+        public ProductsController(IProductService productService, IWebHostEnvironment environment)
         {
-            this.context = context;
-            this.environment = environment;
+            _productService = productService;
+            _environment = environment;
         }
-        public IActionResult Index(int pageIndex, string? search, string? column, string? orderBy)
+
+        /// <summary>
+        /// 顯示產品列表頁面
+        /// </summary>
+        /// <param name="pageIndex">頁碼</param>
+        /// <param name="search">搜尋關鍵字</param>
+        /// <param name="column">排序欄位</param>
+        /// <param name="orderBy">排序方向</param>
+        /// <returns>產品列表頁面</returns>
+        public async Task<IActionResult> Index(int pageIndex, string? search, string? column, string? orderBy)
         {
-            IQueryable<Product> query = context.Products;
+            // 透過服務層取得分頁的產品清單和總頁數
+            var (products, totalPages) = await _productService.GetPagedProductsAsync(pageIndex, _pageSize, search, column, orderBy);
 
-            if (!string.IsNullOrEmpty(search))
-            {
-                query = query.Where(p => p.Name.Contains(search) || p.Brand.Contains(search));
-            }
-
-            string[] validColumns = { "Id", "Name", "Brand", "Category", "Price", "CreatedAt" };
-            string[] validOrderBy = { "desc", "asc" };
-
-            if (!validColumns.Contains(column))
-            {
-                column = "Id";
-            }
-
-            if (!validOrderBy.Contains(orderBy))
-            {
-                orderBy = "desc";
-            }
-
-            if (column == "Name")
-            {
-                if (orderBy == "asc")
-                {
-                    query = query.OrderBy(p => p.Name);
-                }
-                else
-                {
-                    query = query.OrderByDescending(p => p.Name);
-                }
-            }
-            else if (column == "Brand")
-            {
-                if (orderBy == "asc")
-                {
-                    query = query.OrderBy(p => p.Brand);
-                }
-                else
-                {
-                    query = query.OrderByDescending(p => p.Brand);
-                }
-            }
-            else if (column == "Category")
-            {
-                if (orderBy == "asc")
-                {
-                    query = query.OrderBy(p => p.Category);
-                }
-                else
-                {
-                    query = query.OrderByDescending(p => p.Category);
-                }
-            }
-            else if (column == "Price")
-            {
-                if (orderBy == "asc")
-                {
-                    query = query.OrderBy(p => p.Price);
-                }
-                else
-                {
-                    query = query.OrderByDescending(p => p.Price);
-                }
-            }
-            else if (column == "CreatedAt")
-            {
-                if (orderBy == "asc")
-                {
-                    query = query.OrderBy(p => p.CreatedAt);
-                }
-                else
-                {
-                    query = query.OrderByDescending(p => p.CreatedAt);
-                }
-            }
-            else
-            {
-                if (orderBy == "asc")
-                {
-                    query = query.OrderBy(p => p.Id);
-                }
-                else
-                {
-                    query = query.OrderByDescending(p => p.Id);
-                }
-            }
-
-            //query = query.OrderByDescending(p => p.Id);
-
-            if (pageIndex < 1)
-            {
-                pageIndex = 1;
-            }
-
-            decimal totalCount = query.Count();
-            int totalPages = (int)Math.Ceiling(totalCount / pageSize);
-            query = query.Skip((pageIndex - 1) * pageSize).Take(pageSize);
-
-            var products = query.ToList();
-
+            // 將分頁資訊放入 ViewData，供 View 使用
             ViewData["PageIndex"] = pageIndex;
             ViewData["TotalPages"] = totalPages;
-
-            ViewData["Search"] = search ?? "";
-
+            ViewData["Search"] = search ?? ""; // 如果搜尋關鍵字為 null，則設為空字串
             ViewData["Column"] = column;
             ViewData["OrderBy"] = orderBy;
 
+            // 傳回產品列表頁面，以產品清單作為模型
             return View(products);
         }
 
+        /// <summary>
+        /// 顯示建立產品頁面
+        /// </summary>
+        /// <returns>建立產品頁面</returns>
         public IActionResult Create()
         {
+            // 傳回建立產品頁面
             return View();
         }
 
-        [HttpPost]
-        [ValidateAntiForgeryToken]
+        /// <summary>
+        /// 處理建立產品的 POST 請求
+        /// </summary>
+        /// <param name="productDto">產品資料傳輸物件</param>
+        /// <returns>重導向到產品列表頁面或顯示錯誤訊息</returns>
+        [HttpPost] // 指定此方法只處理 POST 請求
+        [ValidateAntiForgeryToken] // 防止 CSRF 攻擊
         public async Task<IActionResult> Create(ProductDto productDto)
         {
+            // 檢查是否有上傳圖片檔案
             if (productDto.ImageFile == null)
             {
+                // 如果沒有上傳圖片，加入模型錯誤
                 ModelState.AddModelError("ImageFile", "The image file is required.");
             }
 
+            // 檢查模型狀態是否有效
             if (!ModelState.IsValid)
             {
+                // 如果模型狀態無效，重新顯示建立頁面
                 return View(productDto);
             }
 
-            // Save the image file
-            string newFileName = DateTime.Now.ToString("yyyyMMddHHmmssfff");
-            newFileName += Path.GetExtension(productDto.ImageFile!.FileName);
-
-            string imageFullPath = environment.WebRootPath + "/products/" + newFileName;
-            using (var stream = System.IO.File.Create(imageFullPath))
+            try
             {
-                await productDto.ImageFile.CopyToAsync(stream);
+                // 透過服務層建立產品
+                await _productService.CreateProductAsync(productDto, _environment);
+                
+                // 建立成功，重導向到產品列表頁面
+                return RedirectToAction("Index", "Products");
             }
-
-            // Create a new product
-            var product = new Product
+            catch (Exception)
             {
-                Name = productDto.Name,
-                Brand = productDto.Brand,
-                Category = productDto.Category,
-                Price = productDto.Price,
-                Description = productDto.Description,
-                ImageFileName = newFileName,
-                CreatedAt = DateTime.Now
-            };
-
-            context.Products.Add(product);
-            await context.SaveChangesAsync();
-
-            return RedirectToAction("Index", "Products");
+                // 發生例外時，加入錯誤訊息並重新顯示建立頁面
+                ModelState.AddModelError("", "An error occurred while creating the product. Please try again.");
+                return View(productDto);
+            }
         }
 
-        public IActionResult Edit(int id)
+        /// <summary>
+        /// 顯示編輯產品頁面
+        /// </summary>
+        /// <param name="id">產品 ID</param>
+        /// <returns>編輯產品頁面或重導向到產品列表</returns>
+        public async Task<IActionResult> Edit(int id)
         {
-            var product = context.Products.Find(id);
+            // 根據 ID 取得產品資料
+            var product = await _productService.GetProductByIdAsync(id);
+            
+            // 如果找不到產品，重導向到產品列表頁面
             if (product == null)
             {
                 return RedirectToAction("Index", "Products");
             }
+
+            // 將產品資料轉換為 DTO 格式
             var productDto = new ProductDto
             {
                 Name = product.Name,
@@ -195,86 +132,99 @@ namespace BestStoreMVC.Controllers
                 Description = product.Description
             };
 
+            // 將產品相關資訊放入 ViewData，供 View 使用
             ViewData["ProductId"] = product.Id;
             ViewData["ImageFileName"] = product.ImageFileName;
-            ViewData["CreatedAt"] = product.CreatedAt.ToString("MM/dd/yyyy");
+            ViewData["CreatedAt"] = product.CreatedAt.ToString("MM/dd/yyyy"); // 格式化建立時間
 
+            // 傳回編輯產品頁面，以產品 DTO 作為模型
             return View(productDto);
         }
 
-        [HttpPost]
-        [ValidateAntiForgeryToken]
+        /// <summary>
+        /// 處理編輯產品的 POST 請求
+        /// </summary>
+        /// <param name="id">產品 ID</param>
+        /// <param name="productDto">產品資料傳輸物件</param>
+        /// <returns>重導向到產品列表頁面或顯示錯誤訊息</returns>
+        [HttpPost] // 指定此方法只處理 POST 請求
+        [ValidateAntiForgeryToken] // 防止 CSRF 攻擊
         public async Task<IActionResult> Edit(int id, ProductDto productDto)
         {
-            var product = context.Products.Find(id);
-
-            if (product == null)
-            {
-                return RedirectToAction("Index", "Products");
-            }
-
+            // 檢查模型狀態是否有效
             if (!ModelState.IsValid)
             {
-                ViewData["ProductId"] = product.Id;
-                ViewData["ImageFileName"] = product.ImageFileName;
-                ViewData["CreatedAt"] = product.CreatedAt.ToString("MM/dd/yyyy");
-
+                // 如果模型狀態無效，重新取得產品資料並顯示編輯頁面
+                var product = await _productService.GetProductByIdAsync(id);
+                if (product != null)
+                {
+                    // 重新設定 ViewData 資料
+                    ViewData["ProductId"] = product.Id;
+                    ViewData["ImageFileName"] = product.ImageFileName;
+                    ViewData["CreatedAt"] = product.CreatedAt.ToString("MM/dd/yyyy");
+                }
                 return View(productDto);
             }
 
-            string newFileName = product.ImageFileName;
-            if (productDto.ImageFile != null)
+            try
             {
-                // Save the new image file
-                newFileName = DateTime.Now.ToString("yyyyMMddHHmmssfff");
-                newFileName += Path.GetExtension(productDto.ImageFile.FileName);
-                string imageFullPath = environment.WebRootPath + "/products/" + newFileName;
-                using (var stream = System.IO.File.Create(imageFullPath))
+                // 透過服務層更新產品
+                var updatedProduct = await _productService.UpdateProductAsync(id, productDto, _environment);
+                
+                // 如果更新失敗（找不到產品），重導向到產品列表頁面
+                if (updatedProduct == null)
                 {
-                    await productDto.ImageFile.CopyToAsync(stream);
+                    return RedirectToAction("Index", "Products");
                 }
 
-                // Delete the old image file
-                string oldImagePath = Path.Combine(environment.WebRootPath, "products", product.ImageFileName);
-                if (System.IO.File.Exists(oldImagePath))
-                {
-                    System.IO.File.Delete(oldImagePath);
-                }
-            }
-
-            // Update the product details
-            product.Name = productDto.Name;
-            product.Brand = productDto.Brand;
-            product.Category = productDto.Category;
-            product.Price = productDto.Price;
-            product.Description = productDto.Description;
-            product.ImageFileName = newFileName;
-        
-            context.Products.Update(product);
-            await context.SaveChangesAsync();
-
-            return RedirectToAction("Index", "Products");
-        }
-
-        public async Task<IActionResult> Delete(int id)
-        {
-            var product = context.Products.Find(id);
-            if (product == null)
-            {
+                // 更新成功，重導向到產品列表頁面
                 return RedirectToAction("Index", "Products");
             }
-
-            context.Products.Remove(product);
-            await context.SaveChangesAsync();
-
-            // Delete the image file
-            string imagePath = Path.Combine(environment.WebRootPath, "products", product.ImageFileName);
-            if (System.IO.File.Exists(imagePath))
+            catch (Exception)
             {
-                System.IO.File.Delete(imagePath);
+                // 發生例外時，加入錯誤訊息並重新顯示編輯頁面
+                ModelState.AddModelError("", "An error occurred while updating the product. Please try again.");
+                
+                // 重新取得產品資料以設定 ViewData
+                var product = await _productService.GetProductByIdAsync(id);
+                if (product != null)
+                {
+                    ViewData["ProductId"] = product.Id;
+                    ViewData["ImageFileName"] = product.ImageFileName;
+                    ViewData["CreatedAt"] = product.CreatedAt.ToString("MM/dd/yyyy");
+                }
+                return View(productDto);
             }
+        }
 
-            return RedirectToAction("Index", "Products");
+        /// <summary>
+        /// 刪除產品
+        /// </summary>
+        /// <param name="id">產品 ID</param>
+        /// <returns>重導向到產品列表頁面</returns>
+        public async Task<IActionResult> Delete(int id)
+        {
+            try
+            {
+                // 透過服務層刪除產品
+                var success = await _productService.DeleteProductAsync(id, _environment);
+                
+                // 如果刪除失敗（找不到產品），重導向到產品列表頁面
+                if (!success)
+                {
+                    // Product not found
+                    return RedirectToAction("Index", "Products");
+                }
+
+                // 刪除成功，重導向到產品列表頁面
+                return RedirectToAction("Index", "Products");
+            }
+            catch (Exception)
+            {
+                // 發生例外時，記錄錯誤並重導向到產品列表頁面
+                // Log the exception
+                return RedirectToAction("Index", "Products");
+            }
         }
     }
 }

@@ -1,0 +1,67 @@
+@{
+    ViewData["Title"] = "Remember Me Test";
+}
+
+<div class="row">
+    <div class="col-md-8 mx-auto">
+        <div class="card">
+            <div class="card-header">
+                <h3>Remember Me 功能測試</h3>
+            </div>
+            <div class="card-body">
+                <h4>登入狀態</h4>
+                <ul class="list-group list-group-flush mb-3">
+                    <li class="list-group-item">
+                        <strong>已認證：</strong>
+                        @if (ViewBag.IsAuthenticated)
+                        {
+                            <span class="badge bg-success">是</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-danger">否</span>
+                        }
+                    </li>
+                    <li class="list-group-item">
+                        <strong>使用者名稱：</strong> @ViewBag.UserName
+                    </li>
+                    <li class="list-group-item">
+                        <strong>認證類型：</strong> @ViewBag.AuthenticationType
+                    </li>
+                    <li class="list-group-item">
+                        <strong>持久性 Cookie：</strong>
+                        @if (ViewBag.HasPersistentCookie)
+                        {
+                            <span class="badge bg-success">存在</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-warning">不存在</span>
+                        }
+                    </li>
+                    <li class="list-group-item">
+                        <strong>總 Cookie 數量：</strong> @ViewBag.CookieCount
+                    </li>
+                </ul>
+
+                <h4>測試說明</h4>
+                <div class="alert alert-info">
+                    <p><strong>如何測試 Remember Me 功能：</strong></p>
+                    <ol>
+                        <li>登出當前帳號</li>
+                        <li>重新登入，並勾選 "Remember Me" 選項</li>
+                        <li>關閉瀏覽器或清除會話 Cookie</li>
+                        <li>重新開啟瀏覽器並訪問此頁面</li>
+                        <li>如果 "持久性 Cookie" 顯示 "存在" 且 "已認證" 顯示 "是"，則 Remember Me 功能正常</li>
+                    </ol>
+                </div>
+
+                <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                    <a class="btn btn-primary" asp-controller="Home" asp-action="Index">返回首頁</a>
+                    <a class="btn btn-outline-secondary" asp-controller="Account" asp-action="Logout">登出</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+

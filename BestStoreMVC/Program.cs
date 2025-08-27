@@ -1,6 +1,7 @@
 using BestStoreMVC.Models;
 using BestStoreMVC.Services;
 using BestStoreMVC.Services.EmailSender;
+using BestStoreMVC.Services.Repository;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.EntityFrameworkCore;
@@ -11,6 +12,9 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllersWithViews()
     .AddRazorRuntimeCompilation();
 
+// è¨»å†Š HTTP ä¸Šä¸‹æ–‡å­˜å–å™¨
+builder.Services.AddHttpContextAccessor();
+
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
 {
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"));
@@ -19,26 +23,56 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(
         options =>
         {
-            options.Password.RequireLowercase = false; //Ãö³¬¦Ü¤Ö¤@­Ó¤p¼g a¡Vz
-            options.Password.RequireUppercase = false; //Ãö³¬¦Ü¤Ö¤@­Ó¤j¼g A¡VZ
-            options.Password.RequireNonAlphanumeric = false; //Ãö³¬±K½X¥²¶·¥]§t¦Ü¤Ö¤@­Ó¡u«D­^¼Æ¦r¤¸¡v¡]²Å¸¹¡^
+            options.Password.RequireLowercase = false;
+            options.Password.RequireUppercase = false;
+            options.Password.RequireNonAlphanumeric = false; 
             options.Password.RequiredLength = 6;
-            options.Password.RequireDigit = true; //¶}±Ò¦Ü¤Ö¤@­Ó¼Æ¦r 0¡V9 ªºÅçÃÒ
+            options.Password.RequireDigit = true;
         })
         .AddEntityFrameworkStores<ApplicationDbContext>()
         .AddDefaultTokenProviders()
         ;
 
+// é…ç½® Cookie è¨­å®š
+builder.Services.ConfigureApplicationCookie(options =>
+{
+    options.LoginPath = "/Account/Login";
+    options.LogoutPath = "/Account/Logout";
+    options.AccessDeniedPath = "/Account/AccessDenied";
+    
+    // Cookie è¨­å®š
+    options.Cookie.HttpOnly = true;
+    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+    options.Cookie.SameSite = SameSiteMode.Strict;
+    
+    // è¨˜ä½æˆ‘åŠŸèƒ½çš„ Cookie éæœŸæ™‚é–“è¨­å®š
+    options.ExpireTimeSpan = TimeSpan.FromDays(30); // 30å¤©
+    options.SlidingExpiration = true; // æ»‘å‹•éæœŸï¼Œæ¯æ¬¡è«‹æ±‚éƒ½æœƒå»¶é•·éæœŸæ™‚é–“
+});
+
 builder.Services.Configure<SmtpOptions>(builder.Configuration.GetSection("Smtp"));
 builder.Services.AddScoped<IEmailSenderEx, SmtpEmailSender>();
 
-// ¦P®É¤ä´© appsettings »PÀô¹ÒÅÜ¼Æ
+// Register Repository and Unit of Work
+builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
+
+// Register Services
+builder.Services.AddScoped<IProductService, ProductService>();
+builder.Services.AddScoped<IStoreService, StoreService>();
+builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<IHomeService, HomeService>();
+builder.Services.AddScoped<IClientOrderService, ClientOrderService>();
+builder.Services.AddScoped<ICartService, CartService>();
+builder.Services.AddScoped<ICheckoutService, CheckoutService>();
+builder.Services.AddScoped<IAdminOrderService, AdminOrderService>();
+builder.Services.AddScoped<IAccountService, AccountService>();
+
 string? certPath =
-    builder.Configuration["Kestrel:Certificates:Default:Path"] ??
-    builder.Configuration["ASPNETCORE_Kestrel__Certificates__Default__Path"];
+   builder.Configuration["Kestrel:Certificates:Default:Path"] ??
+   builder.Configuration["ASPNETCORE_Kestrel__Certificates__Default__Path"];
 string? certPwd =
-    builder.Configuration["Kestrel:Certificates:Default:Password"] ??
-    builder.Configuration["ASPNETCORE_Kestrel__Certificates__Default__Password"];
+   builder.Configuration["Kestrel:Certificates:Default:Password"] ??
+   builder.Configuration["ASPNETCORE_Kestrel__Certificates__Default__Password"];
 
 builder.WebHost.UseKestrel(options =>
 {
@@ -84,14 +118,14 @@ app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=Index}/{id?}");
 
-// ¦Û°Ê°õ¦æ¸ê®Æ®w¾E²¾¡]migrations¡^
+// è‡ªå‹•åŸ·è¡Œè³‡æ–™åº«é·ç§»
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
     db.Database.Migrate();
 }
 
-// ¦pªG©|¥¼«Ø¥ß¡A«h³Ğ«Ø©Ò¦³¨¤¦â»P¹w³]ªº admin ±b¸¹
+// è‡ªå‹•å»ºç«‹åˆå§‹è³‡æ–™ï¼ˆé è¨­å¸³è™Ÿã€æ¬Šé™ï¼‰
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;

@@ -18,66 +18,110 @@
     </div>
 </div>
 
+@* 隱藏的 CSRF token 欄位 *@
+@Html.AntiForgeryToken()
+
 <script>
+    // 取得 CSRF token
+    function getToken() {
+        return document.querySelector('input[name="__RequestVerificationToken"]').value;
+    }
+
     paypal.Buttons({
         async createOrder() {
-            const response = await fetch('@Url.ActionLink("CreateOrder", "Checkout")', {
-                method: "POST"
-            });
+            try {
+                const response = await fetch('@Url.ActionLink("CreateOrder", "Checkout")', {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "RequestVerificationToken": getToken()
+                    }
+                });
 
-            const order = await response.json();
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
 
-            return order.id;
+                const order = await response.json();
+                console.log('PayPal order created:', order);
+
+                // 修正：使用正確的屬性名稱
+                return order.Id || order.id;
+            } catch (error) {
+                console.error('Error creating PayPal order:', error);
+                throw error;
+            }
         },
 
         async onApprove(data) {
-            // Capture the funds from the transaction.
-            const response = await fetch('@Url.ActionLink("CompleteOrder", "Checkout")', {
-              method: "POST",
-              headers: {
-                    "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                    orderID: data.orderID,
-                    deliveryAddress: "@ViewBag.DeliveryAddress"
-              })
-            })
+            try {
+                console.log('PayPal order approved:', data);
+                
+                // Capture the funds from the transaction.
+                const response = await fetch('@Url.ActionLink("CompleteOrder", "Checkout")', {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "RequestVerificationToken": getToken()
+                    },
+                    body: JSON.stringify({
+                        orderID: data.orderID,
+                        deliveryAddress: "@ViewBag.DeliveryAddress"
+                    })
+                });
 
-            const details = await response.json();
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
 
-            // Show a success message to your buyer.
-            if (details == "success")
-            {
+                const details = await response.json();
+                console.log('Payment completion result:', details);
+
+                // Show a success message to your buyer.
+                if (details === "success") {
+                    document.getElementById("notification-container").innerHTML = `
+                        <div class="alert alert-success alert-dismissible fade show" role="alert">
+                            <strong>The order is created successfully!</strong> Your payment was successful.
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    `;
+                } else {
+                    document.getElementById("notification-container").innerHTML = `
+                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                            <strong>Transaction failed!</strong> Please retry later. Error: ${details}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Error completing payment:', error);
                 document.getElementById("notification-container").innerHTML = `
-                    <div class="alert alert-success alert-dismissible fade show" role="alert">
-                        <strong>The order is created successfully!</strong> Your payment was successful.
+                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                        <strong>Transaction failed!</strong> Please retry later. Error: ${error.message}
                         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                     </div>
                 `;
-            } else {
-                document.getElementById("notification-container").innerHTML = `
-                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                        <strong>Transaction failed!</strong> Please retry later.
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                    </div>
-                `;}
+            }
         },
+        
         onCancel(data) {
+            console.log('PayPal order cancelled:', data);
             document.getElementById("notification-container").innerHTML = `
-                <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                    <strong>Failed to create the order!</strong> You have cancelled the payment.
+                <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                    <strong>Payment cancelled!</strong> You have cancelled the payment.
                     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 </div>
             `;
         },
+        
         onError(err) {
+            console.error('PayPal error:', err);
             document.getElementById("notification-container").innerHTML = `
                 <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                    <strong>An error occured! Please retry later.</strong> You have cancelled the payment.
+                    <strong>An error occurred!</strong> Please retry later. Error: ${err.message || 'Unknown error'}
                     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 </div>
             `;
         }
-
     }).render('#paypal-button-container');
 </script>
