@@ -1,0 +1,378 @@
+# GitHub Actions CI/CD 工作流程
+# 此檔案定義了自動化的建置、測試和部署流程
+
+# 工作流程名稱
+name: Best Store MVC CI/CD Pipeline
+
+# 觸發條件：當有程式碼推送到 main 分支或建立 Pull Request 時執行
+on:
+    # 推送到 main 分支時觸發
+    push:
+        branches: [main]
+
+    # 建立 Pull Request 到 main 分支時觸發
+    pull_request:
+        branches: [main]
+
+# 環境變數：定義整個工作流程中使用的變數
+env:
+    # .NET 版本
+    DOTNET_VERSION: '8.0.x'
+    # 專案名稱
+    PROJECT_NAME: 'BestStoreMVC'
+    # 建置配置
+    BUILD_CONFIGURATION: 'Release'
+
+# 工作流程作業：定義要執行的任務
+jobs:
+    # 建置和測試作業
+    build-and-test:
+        # 作業名稱
+        name: Build and Test
+
+        # 執行環境：使用 Ubuntu 最新版本
+        runs-on: ubuntu-latest
+
+        # 作業步驟：按順序執行的任務
+        steps:
+            # 步驟 1: 檢出程式碼
+            - name: Checkout code
+              # 使用 GitHub 官方檢出動作
+              uses: actions/checkout@v4
+              # 檢出深度設為 1，只檢出最新的提交以加快速度
+              with:
+                  fetch-depth: 1
+
+            # 步驟 2: 設定 .NET 環境
+            - name: Setup .NET ${{ env.DOTNET_VERSION }}
+              # 使用 .NET 官方設定動作
+              uses: actions/setup-dotnet@v4
+              # 設定 .NET 版本
+              with:
+                  dotnet-version: ${{ env.DOTNET_VERSION }}
+
+            # 步驟 3: 還原 NuGet 套件
+            - name: Restore dependencies
+              # 執行 dotnet restore 命令
+              run: dotnet restore ${{ env.PROJECT_NAME }}/${{ env.PROJECT_NAME }}.csproj
+              # 工作目錄：指定執行命令的目錄
+              working-directory: ${{ github.workspace }}
+
+            # 步驟 4: 建置專案
+            - name: Build project
+              # 執行 dotnet build 命令
+              run: dotnet build ${{ env.PROJECT_NAME }}/${{ env.PROJECT_NAME }}.csproj --configuration ${{ env.BUILD_CONFIGURATION }} --no-restore
+              # 工作目錄：指定執行命令的目錄
+              working-directory: ${{ github.workspace }}
+
+            # 步驟 5: 執行單元測試
+            - name: Run unit tests
+              # 執行 dotnet test 命令
+              run: dotnet test ${{ env.PROJECT_NAME }}/${{ env.PROJECT_NAME }}.csproj --configuration ${{ env.BUILD_CONFIGURATION }} --no-build --verbosity normal --collect:"XPlat Code Coverage"
+              # 工作目錄：指定執行命令的目錄
+              working-directory: ${{ github.workspace }}
+              # 即使測試失敗也繼續執行後續步驟
+              continue-on-error: true
+
+            # 步驟 6: 上傳測試結果
+            - name: Upload test results
+              # 使用測試結果上傳動作
+              uses: actions/upload-artifact@v4
+              # 條件：只有在測試步驟執行時才上傳
+              if: always()
+              # 上傳測試結果檔案
+              with:
+                  name: test-results
+                  path: ${{ env.PROJECT_NAME }}/TestResults/
+                  retention-days: 30
+
+            # 步驟 7: 執行程式碼分析
+            - name: Run code analysis
+              # 執行 dotnet format 檢查程式碼格式
+              run: dotnet format --verify-no-changes ${{ env.PROJECT_NAME }}/${{ env.PROJECT_NAME }}.csproj
+              # 工作目錄：指定執行命令的目錄
+              working-directory: ${{ github.workspace }}
+
+            # 步驟 8: 執行安全性掃描
+            - name: Run security scan
+              # 使用 CodeQL 進行安全性分析
+              uses: github/codeql-action/analyze@v3
+              # 條件：只在推送到 main 分支時執行
+              if: github.ref == 'refs/heads/main'
+              # 設定 CodeQL 分析
+              with:
+                  languages: csharp
+                  queries: security-extended,security-and-quality
+
+    # 資料庫遷移作業
+    database-migration:
+        # 作業名稱
+        name: Database Migration
+
+        # 執行環境：使用 Ubuntu 最新版本
+        runs-on: ubuntu-latest
+
+        # 依賴關係：等待建置和測試作業完成
+        needs: build-and-test
+
+        # 條件：只在推送到 main 分支時執行
+        if: github.ref == 'refs/heads/main'
+
+        # 作業步驟
+        steps:
+            # 步驟 1: 檢出程式碼
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            # 步驟 2: 設定 .NET 環境
+            - name: Setup .NET ${{ env.DOTNET_VERSION }}
+              uses: actions/setup-dotnet@v4
+              with:
+                  dotnet-version: ${{ env.DOTNET_VERSION }}
+
+            # 步驟 3: 設定資料庫連線
+            - name: Setup database connection
+              # 使用環境變數設定資料庫連線字串
+              run: |
+                  echo "ConnectionStrings__DefaultConnection=${{ secrets.DATABASE_CONNECTION_STRING }}" >> $GITHUB_ENV
+              # 工作目錄：指定執行命令的目錄
+              working-directory: ${{ github.workspace }}
+
+            # 步驟 4: 執行資料庫遷移
+            - name: Run database migrations
+              # 執行 Entity Framework 遷移
+              run: dotnet ef database update --project ${{ env.PROJECT_NAME }}/${{ env.PROJECT_NAME }}.csproj
+              # 工作目錄：指定執行命令的目錄
+              working-directory: ${{ github.workspace }}
+              # 環境變數：包含資料庫連線字串
+              env:
+                  ConnectionStrings__DefaultConnection: ${{ secrets.DATABASE_CONNECTION_STRING }}
+
+    # 部署到測試環境作業
+    deploy-staging:
+        # 作業名稱
+        name: Deploy to Staging
+
+        # 執行環境：使用 Ubuntu 最新版本
+        runs-on: ubuntu-latest
+
+        # 依賴關係：等待資料庫遷移作業完成
+        needs: [build-and-test, database-migration]
+
+        # 條件：只在推送到 main 分支時執行
+        if: github.ref == 'refs/heads/main'
+
+        # 作業步驟
+        steps:
+            # 步驟 1: 檢出程式碼
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            # 步驟 2: 設定 .NET 環境
+            - name: Setup .NET ${{ env.DOTNET_VERSION }}
+              uses: actions/setup-dotnet@v4
+              with:
+                  dotnet-version: ${{ env.DOTNET_VERSION }}
+
+            # 步驟 3: 發布應用程式
+            - name: Publish application
+              # 執行 dotnet publish 命令
+              run: dotnet publish ${{ env.PROJECT_NAME }}/${{ env.PROJECT_NAME }}.csproj --configuration ${{ env.BUILD_CONFIGURATION }} --output ./publish --no-restore
+              # 工作目錄：指定執行命令的目錄
+              working-directory: ${{ github.workspace }}
+
+            # 步驟 4: 上傳發布檔案
+            - name: Upload publish artifacts
+              # 使用動作上傳發布檔案
+              uses: actions/upload-artifact@v4
+              # 上傳發布目錄
+              with:
+                  name: publish-files
+                  path: ./publish
+                  retention-days: 1
+
+            # 步驟 5: 部署到測試環境
+            - name: Deploy to staging environment
+              # 使用 SSH 部署到測試伺服器
+              run: |
+                  # 建立部署腳本
+                  echo "#!/bin/bash" > deploy.sh
+                  echo "cd /var/www/beststore-staging" >> deploy.sh
+                  echo "git pull origin main" >> deploy.sh
+                  echo "dotnet build --configuration Release" >> deploy.sh
+                  echo "sudo systemctl restart beststore-staging" >> deploy.sh
+                  chmod +x deploy.sh
+
+                  # 執行部署腳本
+                  ssh ${{ secrets.STAGING_SSH_USER }}@${{ secrets.STAGING_SERVER }} 'bash -s' < deploy.sh
+              # 環境變數：SSH 金鑰
+              env:
+                  SSH_PRIVATE_KEY: ${{ secrets.STAGING_SSH_KEY }}
+
+    # 部署到生產環境作業
+    deploy-production:
+        # 作業名稱
+        name: Deploy to Production
+
+        # 執行環境：使用 Ubuntu 最新版本
+        runs-on: ubuntu-latest
+
+        # 依賴關係：等待測試環境部署完成
+        needs: [build-and-test, database-migration, deploy-staging]
+
+        # 條件：只在推送到 main 分支且手動觸發時執行
+        if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch'
+
+        # 作業步驟
+        steps:
+            # 步驟 1: 檢出程式碼
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            # 步驟 2: 設定 .NET 環境
+            - name: Setup .NET ${{ env.DOTNET_VERSION }}
+              uses: actions/setup-dotnet@v4
+              with:
+                  dotnet-version: ${{ env.DOTNET_VERSION }}
+
+            # 步驟 3: 發布應用程式
+            - name: Publish application
+              run: dotnet publish ${{ env.PROJECT_NAME }}/${{ env.PROJECT_NAME }}.csproj --configuration ${{ env.BUILD_CONFIGURATION }} --output ./publish --no-restore
+              working-directory: ${{ github.workspace }}
+
+            # 步驟 4: 部署到生產環境
+            - name: Deploy to production environment
+              # 使用 SSH 部署到生產伺服器
+              run: |
+                  # 建立部署腳本
+                  echo "#!/bin/bash" > deploy-prod.sh
+                  echo "cd /var/www/beststore-production" >> deploy-prod.sh
+                  echo "git pull origin main" >> deploy-prod.sh
+                  echo "dotnet build --configuration Release" >> deploy-prod.sh
+                  echo "sudo systemctl restart beststore-production" >> deploy-prod.sh
+                  chmod +x deploy-prod.sh
+
+                  # 執行部署腳本
+                  ssh ${{ secrets.PRODUCTION_SSH_USER }}@${{ secrets.PRODUCTION_SERVER }} 'bash -s' < deploy-prod.sh
+              # 環境變數：SSH 金鑰
+              env:
+                  SSH_PRIVATE_KEY: ${{ secrets.PRODUCTION_SSH_KEY }}
+
+            # 步驟 5: 發送部署通知
+            - name: Send deployment notification
+              # 使用 Slack 發送通知
+              uses: 8398a7/action-slack@v3
+              # 條件：部署成功時發送通知
+              if: success()
+              # 設定 Slack 通知
+              with:
+                  status: success
+                  channel: '#deployments'
+                  text: 'Production deployment completed successfully!'
+              # 環境變數：Slack Webhook URL
+              env:
+                  SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+    # Docker 建置作業
+    docker-build:
+        # 作業名稱
+        name: Build Docker Image
+
+        # 執行環境：使用 Ubuntu 最新版本
+        runs-on: ubuntu-latest
+
+        # 依賴關係：等待建置和測試作業完成
+        needs: build-and-test
+
+        # 條件：只在推送到 main 分支時執行
+        if: github.ref == 'refs/heads/main'
+
+        # 作業步驟
+        steps:
+            # 步驟 1: 檢出程式碼
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            # 步驟 2: 設定 Docker Buildx
+            - name: Set up Docker Buildx
+              # 使用 Docker Buildx 動作
+              uses: docker/setup-buildx-action@v3
+
+            # 步驟 3: 登入 Docker Hub
+            - name: Login to Docker Hub
+              # 使用 Docker 登入動作
+              uses: docker/login-action@v3
+              # 設定 Docker Hub 認證
+              with:
+                  username: ${{ secrets.DOCKER_USERNAME }}
+                  password: ${{ secrets.DOCKER_PASSWORD }}
+
+            # 步驟 4: 建置並推送 Docker 映像
+            - name: Build and push Docker image
+              # 使用 Docker 建置動作
+              uses: docker/build-push-action@v5
+              # 設定建置參數
+              with:
+                  # 建置上下文：專案根目錄
+                  context: .
+                  # Dockerfile 路徑
+                  file: ./Dockerfile
+                  # 映像標籤
+                  tags: |
+                      ${{ secrets.DOCKER_USERNAME }}/beststore:${{ github.sha }}
+                      ${{ secrets.DOCKER_USERNAME }}/beststore:latest
+                  # 推送映像到 Docker Hub
+                  push: true
+                  # 建置快取
+                  cache-from: type=gha
+                  cache-to: type=gha,mode=max
+
+    # 安全性掃描作業
+    security-scan:
+        # 作業名稱
+        name: Security Scan
+
+        # 執行環境：使用 Ubuntu 最新版本
+        runs-on: ubuntu-latest
+
+        # 依賴關係：等待建置和測試作業完成
+        needs: build-and-test
+
+        # 條件：只在推送到 main 分支時執行
+        if: github.ref == 'refs/heads/main'
+
+        # 作業步驟
+        steps:
+            # 步驟 1: 檢出程式碼
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            # 步驟 2: 執行 Trivy 漏洞掃描
+            - name: Run Trivy vulnerability scanner
+              # 使用 Trivy 動作進行漏洞掃描
+              uses: aquasecurity/trivy-action@master
+              # 設定掃描參數
+              with:
+                  # 掃描類型：檔案系統
+                  scan-type: 'fs'
+                  # 掃描路徑：專案目錄
+                  scan-ref: '.'
+                  # 輸出格式：表格
+                  format: 'table'
+                  # 輸出檔案
+                  output: 'trivy-results.txt'
+
+            # 步驟 3: 上傳掃描結果
+            - name: Upload scan results
+              # 上傳掃描結果檔案
+              uses: actions/upload-artifact@v4
+              # 條件：總是上傳結果
+              if: always()
+              # 上傳設定
+              with:
+                  name: security-scan-results
+                  path: trivy-results.txt
+                  retention-days: 30
+# 工作流程完成後的操作
+# 這些操作在工作流程完成後執行，無論成功或失敗
+# 例如：清理資源、發送通知等

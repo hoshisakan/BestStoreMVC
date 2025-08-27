@@ -1,0 +1,195 @@
+# Pull Request 檢查工作流程
+# 此檔案專門用於檢查 Pull Request 的程式碼品質
+
+# 工作流程名稱
+name: Pull Request Check
+
+# 觸發條件：只在 Pull Request 時執行
+on:
+    # 建立或更新 Pull Request 時觸發
+    pull_request:
+        branches: [main, develop]
+
+    # 推送到 Pull Request 分支時觸發
+    push:
+        branches-ignore: [main, develop]
+
+# 環境變數
+env:
+    DOTNET_VERSION: '8.0.x'
+    PROJECT_NAME: 'BestStoreMVC'
+    BUILD_CONFIGURATION: 'Debug'
+
+# 工作流程作業
+jobs:
+    # 程式碼品質檢查作業
+    code-quality:
+        name: Code Quality Check
+        runs-on: ubuntu-latest
+
+        steps:
+            # 步驟 1: 檢出程式碼
+            - name: Checkout code
+              uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0 # 檢出完整歷史以進行分析
+
+            # 步驟 2: 設定 .NET 環境
+            - name: Setup .NET ${{ env.DOTNET_VERSION }}
+              uses: actions/setup-dotnet@v4
+              with:
+                  dotnet-version: ${{ env.DOTNET_VERSION }}
+
+            # 步驟 3: 還原套件
+            - name: Restore dependencies
+              run: dotnet restore ${{ env.PROJECT_NAME }}/${{ env.PROJECT_NAME }}.csproj
+              working-directory: ${{ github.workspace }}
+
+            # 步驟 4: 建置專案
+            - name: Build project
+              run: dotnet build ${{ env.PROJECT_NAME }}/${{ env.PROJECT_NAME }}.csproj --configuration ${{ env.BUILD_CONFIGURATION }} --no-restore
+              working-directory: ${{ github.workspace }}
+
+            # 步驟 5: 執行程式碼格式檢查
+            - name: Check code formatting
+              run: dotnet format --verify-no-changes ${{ env.PROJECT_NAME }}/${{ env.PROJECT_NAME }}.csproj
+              working-directory: ${{ github.workspace }}
+
+            # 步驟 6: 執行靜態程式碼分析
+            - name: Run static code analysis
+              run: dotnet build ${{ env.PROJECT_NAME }}/${{ env.PROJECT_NAME }}.csproj --configuration ${{ env.BUILD_CONFIGURATION }} --verbosity normal
+              working-directory: ${{ github.workspace }}
+
+    # 單元測試作業
+    unit-tests:
+        name: Unit Tests
+        runs-on: ubuntu-latest
+
+        steps:
+            # 步驟 1: 檢出程式碼
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            # 步驟 2: 設定 .NET 環境
+            - name: Setup .NET ${{ env.DOTNET_VERSION }}
+              uses: actions/setup-dotnet@v4
+              with:
+                  dotnet-version: ${{ env.DOTNET_VERSION }}
+
+            # 步驟 3: 還原套件
+            - name: Restore dependencies
+              run: dotnet restore ${{ env.PROJECT_NAME }}/${{ env.PROJECT_NAME }}.csproj
+              working-directory: ${{ github.workspace }}
+
+            # 步驟 4: 執行測試
+            - name: Run tests
+              run: dotnet test ${{ env.PROJECT_NAME }}/${{ env.PROJECT_NAME }}.csproj --configuration ${{ env.BUILD_CONFIGURATION }} --no-build --verbosity normal --collect:"XPlat Code Coverage"
+              working-directory: ${{ github.workspace }}
+
+            # 步驟 5: 上傳測試結果
+            - name: Upload test results
+              uses: actions/upload-artifact@v4
+              if: always()
+              with:
+                  name: test-results-${{ github.run_number }}
+                  path: ${{ env.PROJECT_NAME }}/TestResults/
+                  retention-days: 7
+
+    # 安全性檢查作業
+    security-check:
+        name: Security Check
+        runs-on: ubuntu-latest
+
+        steps:
+            # 步驟 1: 檢出程式碼
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            # 步驟 2: 執行 CodeQL 安全性分析
+            - name: Initialize CodeQL
+              uses: github/codeql-action/init@v3
+              with:
+                  languages: csharp
+                  queries: security-extended,security-and-quality
+
+            # 步驟 3: 設定 .NET 環境
+            - name: Setup .NET ${{ env.DOTNET_VERSION }}
+              uses: actions/setup-dotnet@v4
+              with:
+                  dotnet-version: ${{ env.DOTNET_VERSION }}
+
+            # 步驟 4: 建置專案（CodeQL 需要）
+            - name: Build for CodeQL
+              run: dotnet build ${{ env.PROJECT_NAME }}/${{ env.PROJECT_NAME }}.csproj --configuration ${{ env.BUILD_CONFIGURATION }}
+              working-directory: ${{ github.workspace }}
+
+            # 步驟 5: 執行 CodeQL 分析
+            - name: Perform CodeQL Analysis
+              uses: github/codeql-action/analyze@v3
+
+    # 依賴性檢查作業
+    dependency-check:
+        name: Dependency Check
+        runs-on: ubuntu-latest
+
+        steps:
+            # 步驟 1: 檢出程式碼
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            # 步驟 2: 執行 Trivy 依賴性掃描
+            - name: Run Trivy vulnerability scanner
+              uses: aquasecurity/trivy-action@master
+              with:
+                  scan-type: 'fs'
+                  scan-ref: '.'
+                  format: 'sarif'
+                  output: 'trivy-results.sarif'
+
+            # 步驟 3: 上傳掃描結果
+            - name: Upload Trivy scan results to GitHub Security tab
+              uses: github/codeql-action/upload-sarif@v3
+              if: always()
+              with:
+                  sarif_file: 'trivy-results.sarif'
+
+    # 建置驗證作業
+    build-validation:
+        name: Build Validation
+        runs-on: ubuntu-latest
+
+        steps:
+            # 步驟 1: 檢出程式碼
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            # 步驟 2: 設定 .NET 環境
+            - name: Setup .NET ${{ env.DOTNET_VERSION }}
+              uses: actions/setup-dotnet@v4
+              with:
+                  dotnet-version: ${{ env.DOTNET_VERSION }}
+
+            # 步驟 3: 還原套件
+            - name: Restore dependencies
+              run: dotnet restore ${{ env.PROJECT_NAME }}/${{ env.PROJECT_NAME }}.csproj
+              working-directory: ${{ github.workspace }}
+
+            # 步驟 4: 建置專案（Release 模式）
+            - name: Build project (Release)
+              run: dotnet build ${{ env.PROJECT_NAME }}/${{ env.PROJECT_NAME }}.csproj --configuration Release --no-restore
+              working-directory: ${{ github.workspace }}
+
+            # 步驟 5: 發布應用程式
+            - name: Publish application
+              run: dotnet publish ${{ env.PROJECT_NAME }}/${{ env.PROJECT_NAME }}.csproj --configuration Release --output ./publish --no-restore
+              working-directory: ${{ github.workspace }}
+
+            # 步驟 6: 上傳發布檔案
+            - name: Upload publish artifacts
+              uses: actions/upload-artifact@v4
+              with:
+                  name: publish-files-${{ github.run_number }}
+                  path: ./publish
+                  retention-days: 7
+# 工作流程完成後的操作
+# 這些操作在工作流程完成後執行
