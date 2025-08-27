@@ -12,3 +12,6 @@
 /BestStoreMVC/Properties/PublishProfiles
 /BestStoreMVC/BestStoreMVC.csproj.user
 /BestStoreMVC/BestStoreMVC.csproj.user
+logs
+data
+secrets

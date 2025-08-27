@@ -28,7 +28,39 @@ services:
         networks:
             beststoremvc_net:
                 ipv4_address: ${DOTNET_HOST_IP}
+        depends_on:
+            - mssql
         tty: true
+        restart: always
+
+    mssql:
+        build:
+            context: ./conf/mssql
+            dockerfile: Dockerfile
+            args:
+                - MSSQL_EULA=${MSSQL_EULA}
+                - MSSQL_SA_PASSWORD=${MSSQL_SA_PASSWORD}
+                - MSSQL_PID=${MSSQL_PID}
+        image: ${CONTAINER_AUTHOR}/${PROJECT_NAME}/mssql_${MSSQL_VERSION}
+        container_name: ${PROJECT_NAME}_mssql
+        volumes:
+            - ./data/mssql/mssql_data:/var/opt/mssql/data
+            - ./backup:${MSSQL_BACKUP_PATH}
+            - ./logs/mssql:/var/opt/mssql/log
+            - ./secrets/mssql:/var/opt/mssql/secrets
+        environment:
+            - ACCEPT_EULA=${MSSQL_EULA}
+            - SA_PASSWORD=${MSSQL_SA_PASSWORD}
+            - MSSQL_PID=${MSSQL_PID}
+            - MSSQL_COLLATION=${MSSQL_COLLATION}
+        env_file:
+            - ${ENV_FILE_PATH}
+        user: root
+        ports:
+            - ${MSSQL_OUTER_PORT}:${MSSQL_INNER_PORT}
+        networks:
+            beststoremvc_net:
+                ipv4_address: ${MSSQL_HOST_IP}
         restart: always
 
 networks:

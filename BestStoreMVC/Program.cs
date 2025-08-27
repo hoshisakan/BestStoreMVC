@@ -84,6 +84,13 @@ app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=Index}/{id?}");
 
+// 自動執行資料庫遷移（migrations）
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    db.Database.Migrate();
+}
+
 // 如果尚未建立，則創建所有角色與預設的 admin 帳號
 using (var scope = app.Services.CreateScope())
 {
