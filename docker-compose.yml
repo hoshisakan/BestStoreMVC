@@ -1,4 +1,38 @@
 services:
+    reverse_proxy:
+        build:
+            context: ./conf/nginx
+            dockerfile: Dockerfile
+            args:
+                - NGINX_TIME_ZONE=${NGINX_TIME_ZONE}
+                - NGINX_LANG_NAME=${NGINX_LANG_NAME}
+                - NGINX_LANG_INPUTFILE=${NGINX_LANG_INPUTFILE}
+                - NGINX_LANG_CHARMAP=${NGINX_LANG_CHARMAP}
+                - DEBIAN_FRONTEND=${NGINX_DEBIAN_FRONTEND}
+        image: ${CONTAINER_AUTHOR}/${PROJECT_NAME}/nginx:${NGINX_IMAGE_VERSION}
+        container_name: ${PROJECT_NAME}_nginx
+        env_file:
+            - ${ENV_FILE_PATH}
+        environment:
+            - LANG=${NGINX_LANG_NAME}
+        volumes:
+            - ./conf/nginx/nginx.conf:/etc/nginx/nginx.conf
+            - ./conf/nginx/conf.d:/etc/nginx/conf.d
+            - ./logs/nginx:/var/log/nginx
+            - ./certs/nginx:/etc/nginx/ssl
+        ports:
+            - ${NGINX_HTTP_EXPOSE_PORT}:${NGINX_HTTP_INNER_PORT}
+            - ${NGINX_HTTPS_EXPOSE_PORT}:${NGINX_HTTPS_INNER_PORT}
+        depends_on:
+            - web
+            - mssql
+        networks:
+            beststoremvc_net:
+                ipv4_address: ${NGINX_HOST_IP}
+        user: root
+        tty: true
+        restart: always
+
     web:
         build:
             context: .
@@ -18,11 +52,11 @@ services:
             - DOTNET_LANG_NAME=${DOTNET_LANG_NAME}
             - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
         ports:
-            - ${DOTNET_HTTP_EXPOSE_PORT}:${DOTNET_HTTP_INNER_PORT}
+            # - ${DOTNET_HTTP_EXPOSE_PORT}:${DOTNET_HTTP_INNER_PORT}
             - ${DOTNET_HTTPS_EXPOSE_PORT}:${DOTNET_HTTPS_INNER_PORT}
-        # expose:
-        #     - ${DOTNET_HTTP_INNER_PORT}
-        #     - ${DOTNET_HTTPS_INNER_PORT}
+        expose:
+            # - ${DOTNET_HTTP_EXPOSE_PORT}
+            - ${DOTNET_HTTPS_EXPOSE_PORT}
         volumes:
             - ./certs/dotnet/BestStore.pfx:/deploy/BestStoreMVC/https/BestStore.pfx:ro
         networks:
