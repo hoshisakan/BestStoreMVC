@@ -42,12 +42,16 @@ namespace BestStoreMVC.Controllers
             // 透過服務層計算小計
             var subtotal = _cartService.GetSubtotal(cartItems);
             
+            // 透過服務層取得運費
+            var shippingFee = _cartService.GetShippingFee();
+            
             // 透過服務層計算總計（含運費）
             var total = _cartService.GetTotal(cartItems);
 
             // 將購物車資訊放入 ViewBag，供 View 使用
             ViewBag.CartItems = cartItems;
             ViewBag.Subtotal = subtotal;
+            ViewBag.ShippingFee = shippingFee;
             ViewBag.Total = total;
 
             // 傳回購物車頁面
@@ -70,12 +74,16 @@ namespace BestStoreMVC.Controllers
             // 透過服務層計算小計
             var subtotal = _cartService.GetSubtotal(cartItems);
             
+            // 透過服務層取得運費
+            var shippingFee = _cartService.GetShippingFee();
+            
             // 透過服務層計算總計（含運費）
             var total = _cartService.GetTotal(cartItems);
 
             // 將購物車資訊放入 ViewBag，供 View 使用
             ViewBag.CartItems = cartItems;
             ViewBag.Subtotal = subtotal;
+            ViewBag.ShippingFee = shippingFee;
             ViewBag.Total = total;
 
             // 檢查模型驗證狀態

@@ -120,15 +120,12 @@ namespace BestStoreMVC.Services
                     return false;
                 }
 
-                // 完成 PayPal 付款
-                var paymentResult = await CapturePayPalPaymentAsync(orderId, accessToken);
+                // 完成 PayPal 付款並取得完整回應
+                var (paymentResult, paypalResponse) = await CapturePayPalPaymentAsync(orderId, accessToken);
 
                 // 如果付款成功，儲存訂單到資料庫
                 if (paymentResult)
                 {
-                    // 取得 PayPal 回應資料（這裡簡化處理，實際應該從 PayPal 回應中取得）
-                    var paypalResponse = $"{{\"orderId\":\"{orderId}\",\"status\":\"COMPLETED\"}}";
-                    
                     // 從請求中取得使用者 ID（這裡需要從 HTTP 上下文中取得）
                     var userId = GetUserIdFromRequest(request);
                     
@@ -367,8 +364,8 @@ namespace BestStoreMVC.Services
         /// </summary>
         /// <param name="orderId">PayPal 訂單 ID</param>
         /// <param name="accessToken">存取權杖</param>
-        /// <returns>付款完成結果</returns>
-        private async Task<bool> CapturePayPalPaymentAsync(string orderId, string accessToken)
+        /// <returns>付款完成結果和完整回應</returns>
+        private async Task<(bool Success, string Response)> CapturePayPalPaymentAsync(string orderId, string accessToken)
         {
             try
             {
@@ -386,25 +383,27 @@ namespace BestStoreMVC.Services
                     // 發送請求
                     var httpResponse = await client.SendAsync(requestMessage);
                     
+                    // 取得完整回應內容
+                    var strResponse = await httpResponse.Content.ReadAsStringAsync();
+                    
                     // 檢查回應狀態
                     if (httpResponse.IsSuccessStatusCode)
                     {
-                        var strResponse = await httpResponse.Content.ReadAsStringAsync();
                         var jsonResponse = JsonNode.Parse(strResponse);
                         
                         if (jsonResponse != null)
                         {
                             var paypalOrderStatus = jsonResponse["status"]?.ToString() ?? "";
-                            return paypalOrderStatus == "COMPLETED";
+                            return (paypalOrderStatus == "COMPLETED", strResponse);
                         }
                     }
                 }
 
-                return false;
+                return (false, "");
             }
             catch
             {
-                return false;
+                return (false, "");
             }
         }
     }
