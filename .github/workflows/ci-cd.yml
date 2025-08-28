@@ -65,21 +65,27 @@ jobs:
               # 工作目錄：指定執行命令的目錄
               working-directory: ${{ github.workspace }}
 
-            # 步驟 5: 執行單元測試
+            # 步驟 5: 執行單元測試（可選）
             - name: Run unit tests
               # 執行 dotnet test 命令
-              run: dotnet test ${{ env.PROJECT_NAME }}/${{ env.PROJECT_NAME }}.csproj --configuration ${{ env.BUILD_CONFIGURATION }} --no-build --verbosity normal --collect:"XPlat Code Coverage"
+              run: |
+                # 檢查是否存在測試專案
+                if [ -f "${{ env.PROJECT_NAME }}/${{ env.PROJECT_NAME }}.Tests/${{ env.PROJECT_NAME }}.Tests.csproj" ]; then
+                  dotnet test ${{ env.PROJECT_NAME }}/${{ env.PROJECT_NAME }}.Tests/${{ env.PROJECT_NAME }}.Tests.csproj --configuration ${{ env.BUILD_CONFIGURATION }} --no-build --verbosity normal --collect:"XPlat Code Coverage"
+                else
+                  echo "No test project found. Skipping tests."
+                fi
               # 工作目錄：指定執行命令的目錄
               working-directory: ${{ github.workspace }}
               # 即使測試失敗也繼續執行後續步驟
               continue-on-error: true
 
-            # 步驟 6: 上傳測試結果
+            # 步驟 6: 上傳測試結果（如果存在）
             - name: Upload test results
               # 使用測試結果上傳動作
               uses: actions/upload-artifact@v4
-              # 條件：只有在測試步驟執行時才上傳
-              if: always()
+              # 條件：只有在測試結果目錄存在時才上傳
+              if: hashFiles('${{ env.PROJECT_NAME }}/TestResults/**') != ''
               # 上傳測試結果檔案
               with:
                   name: test-results
