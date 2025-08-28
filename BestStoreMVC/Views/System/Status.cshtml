@@ -1,0 +1,183 @@
+@{
+    ViewData["Title"] = "System Status";
+}
+
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <h2>System Status</h2>
+            <hr />
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- 憑證狀態 -->
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-certificate"></i> Certificate Status
+                    </h5>
+                </div>
+                <div class="card-body">
+                    @if (ViewBag.CertificateStatus.IsValid)
+                    {
+                        <div class="alert alert-success">
+                            <i class="fas fa-check-circle"></i> <strong>Valid Certificate</strong>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle"></i> <strong>Certificate Issue</strong>
+                        </div>
+                    }
+                    
+                    <dl class="row">
+                        <dt class="col-sm-4">Configured:</dt>
+                        <dd class="col-sm-8">
+                            @if (ViewBag.CertificateStatus.IsConfigured)
+                            {
+                                <span class="badge bg-success">Yes</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-secondary">No</span>
+                            }
+                        </dd>
+                        
+                        <dt class="col-sm-4">Valid:</dt>
+                        <dd class="col-sm-8">
+                            @if (ViewBag.CertificateStatus.IsValid)
+                            {
+                                <span class="badge bg-success">Yes</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-danger">No</span>
+                            }
+                        </dd>
+                        
+                        <dt class="col-sm-4">Message:</dt>
+                        <dd class="col-sm-8">
+                            <small class="text-muted">@ViewBag.CertificateStatus.Message</small>
+                        </dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+
+        <!-- 環境資訊 -->
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-server"></i> Environment Information
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <dl class="row">
+                        <dt class="col-sm-4">Environment:</dt>
+                        <dd class="col-sm-8">
+                            <span class="badge bg-info">@ViewBag.Environment</span>
+                        </dd>
+                        
+                        <dt class="col-sm-4">Application:</dt>
+                        <dd class="col-sm-8">@ViewBag.ApplicationName</dd>
+                        
+                        <dt class="col-sm-4">Content Root:</dt>
+                        <dd class="col-sm-8">
+                            <small class="text-muted">@ViewBag.ContentRootPath</small>
+                        </dd>
+                        
+                        <dt class="col-sm-4">Web Root:</dt>
+                        <dd class="col-sm-8">
+                            <small class="text-muted">@ViewBag.WebRootPath</small>
+                        </dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 操作按鈕 -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-tools"></i> Actions
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="btn-group" role="group">
+                        <button type="button" class="btn btn-outline-primary" onclick="refreshStatus()">
+                            <i class="fas fa-sync-alt"></i> Refresh Status
+                        </button>
+                        <button type="button" class="btn btn-outline-info" onclick="getCertificateInfo()">
+                            <i class="fas fa-info-circle"></i> Certificate Info
+                        </button>
+                        @if (ViewBag.Environment == "Development")
+                        {
+                            <button type="button" class="btn btn-outline-warning" onclick="testCertificate()">
+                                <i class="fas fa-vial"></i> Test Certificate
+                            </button>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 結果顯示區域 -->
+    <div class="row mt-3">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-terminal"></i> Results
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <pre id="resultArea" class="bg-light p-3 rounded" style="min-height: 200px; display: none;"></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        function refreshStatus() {
+            location.reload();
+        }
+
+        function getCertificateInfo() {
+            fetch('/System/CertificateInfo')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('resultArea').style.display = 'block';
+                    document.getElementById('resultArea').textContent = JSON.stringify(data, null, 2);
+                })
+                .catch(error => {
+                    document.getElementById('resultArea').style.display = 'block';
+                    document.getElementById('resultArea').textContent = 'Error: ' + error.message;
+                });
+        }
+
+        function testCertificate() {
+            fetch('/System/TestCertificate')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('resultArea').style.display = 'block';
+                    document.getElementById('resultArea').textContent = JSON.stringify(data, null, 2);
+                })
+                .catch(error => {
+                    document.getElementById('resultArea').style.display = 'block';
+                    document.getElementById('resultArea').textContent = 'Error: ' + error.message;
+                });
+        }
+    </script>
+}
+
+
