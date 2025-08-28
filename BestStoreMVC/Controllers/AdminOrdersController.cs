@@ -110,7 +110,7 @@ namespace BestStoreMVC.Controllers
                 TempData["SuccessMessage"] = "Order status updated successfully";
                 return RedirectToAction("Details", new { id = id });
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 // 記錄錯誤並重導向
                 TempData["ErrorMessage"] = "An error occurred while updating order status";
