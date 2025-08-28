@@ -131,7 +131,29 @@ dotnet run
 
 #### 7. 訪問網站
 
-開啟瀏覽器，訪問 `https://localhost:5001`
+開啟瀏覽器，訪問：
+
+-   **HTTP**: `http://localhost:5000`
+-   **HTTPS**: `https://localhost:5001` (需要配置憑證)
+
+#### 8. 配置 HTTPS 憑證 (可選)
+
+如果需要啟用 HTTPS，可以在 `appsettings.json` 中配置憑證：
+
+```json
+{
+    "Kestrel": {
+        "Certificates": {
+            "Default": {
+                "Path": "certs/dotnet/localhost.pfx",
+                "Password": "your-certificate-password"
+            }
+        }
+    }
+}
+```
+
+**注意**: 如果沒有配置憑證或憑證檔案不存在，網站會自動使用 HTTP 模式運行，不會影響正常使用。
 
 ## 🚀 CI/CD 自動化部署
 

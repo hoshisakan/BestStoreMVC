@@ -25,7 +25,7 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(
         {
             options.Password.RequireLowercase = false;
             options.Password.RequireUppercase = false;
-            options.Password.RequireNonAlphanumeric = false; 
+            options.Password.RequireNonAlphanumeric = false;
             options.Password.RequiredLength = 6;
             options.Password.RequireDigit = true;
         })
@@ -39,12 +39,12 @@ builder.Services.ConfigureApplicationCookie(options =>
     options.LoginPath = "/Account/Login";
     options.LogoutPath = "/Account/Logout";
     options.AccessDeniedPath = "/Account/AccessDenied";
-    
+
     // Cookie 設定
     options.Cookie.HttpOnly = true;
     options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
     options.Cookie.SameSite = SameSiteMode.Strict;
-    
+
     // 記住我功能的 Cookie 過期時間設定
     options.ExpireTimeSpan = TimeSpan.FromDays(30); // 30天
     options.SlidingExpiration = true; // 滑動過期，每次請求都會延長過期時間
@@ -67,34 +67,41 @@ builder.Services.AddScoped<ICheckoutService, CheckoutService>();
 builder.Services.AddScoped<IAdminOrderService, AdminOrderService>();
 builder.Services.AddScoped<IAccountService, AccountService>();
 
-string? certPath =
-   builder.Configuration["Kestrel:Certificates:Default:Path"] ??
-   builder.Configuration["ASPNETCORE_Kestrel__Certificates__Default__Path"];
-string? certPwd =
-   builder.Configuration["Kestrel:Certificates:Default:Password"] ??
-   builder.Configuration["ASPNETCORE_Kestrel__Certificates__Default__Password"];
+// === 憑證服務：只保留「同一實例」註冊，避免重複註冊 ===
+var certificateService = new CertificateService(builder.Configuration, builder.Environment);
+builder.Services.AddSingleton(certificateService);
 
+// 配置 Kestrel 伺服器
 builder.WebHost.UseKestrel(options =>
 {
-    // options.ListenAnyIP(5000); // HTTP
+    // 始終啟用 HTTP 監聽（埠號 5000）
+    options.ListenAnyIP(5000);
 
-    if (!string.IsNullOrWhiteSpace(certPath) && !string.IsNullOrWhiteSpace(certPwd))
+    // 使用同一個 certificateService 實例
+    var certStatus = certificateService.GetCertificateStatus();
+
+    if (certStatus.IsValid)
     {
-        var fullPath = Path.IsPathRooted(certPath)
-            ? certPath
-            : Path.Combine(builder.Environment.ContentRootPath, certPath);
+        try
+        {
+            var certPath = certificateService.GetCertificatePath();
+            var certPwd = certificateService.GetCertificatePassword();
+            var fullPath = certificateService.GetFullCertificatePath(certPath!);
 
-        if (File.Exists(fullPath))
-            options.ListenAnyIP(5001, listen => listen.UseHttps(fullPath, certPwd));
-        else
-            Console.WriteLine($"[WARN] cert not found: {fullPath}. HTTPS disabled.");
+            options.ListenAnyIP(5001, listen => listen.UseHttps(fullPath, certPwd!));
+            Console.WriteLine($"[INFO] HTTPS enabled: {certStatus.Message}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[WARN] Failed to configure HTTPS: {ex.Message}");
+            Console.WriteLine("[INFO] HTTPS disabled, using HTTP only.");
+        }
     }
     else
     {
-        Console.WriteLine("[INFO] no cert config. HTTPS disabled.");
+        Console.WriteLine($"[INFO] HTTPS disabled: {certStatus.Message}");
     }
 });
-
 
 var app = builder.Build();
 
@@ -106,7 +113,19 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
-app.UseHttpsRedirection();
+//使用憑證服務來決定是否啟用 HTTPS 重定向
+var certStatus = certificateService.GetCertificateStatus();
+
+// 只有在有有效憑證時才啟用 HTTPS 重定向
+if (certStatus.IsValid)
+{
+    app.UseHttpsRedirection();
+    Console.WriteLine("[INFO] HTTPS redirection enabled.");
+}
+else
+{
+    Console.WriteLine($"[INFO] HTTPS redirection disabled: {certStatus.Message}");
+}
 app.UseStaticFiles();
 
 app.UseRouting();
