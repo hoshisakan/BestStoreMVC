@@ -53,6 +53,15 @@ namespace BestStoreMVC.Services
         }
 
         /// <summary>
+        /// 取得運費
+        /// </summary>
+        /// <returns>運費金額</returns>
+        public decimal GetShippingFee()
+        {
+            return _shippingFee;
+        }
+
+        /// <summary>
         /// 計算購物車總計（含運費）
         /// </summary>
         /// <param name="cartItems">購物車項目清單</param>
@@ -150,6 +159,7 @@ namespace BestStoreMVC.Services
         }
     }
 }
+
 
 
 

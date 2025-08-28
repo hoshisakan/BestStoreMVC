@@ -308,18 +308,35 @@
 </div>
 
 <div class="modal fade" id="paymentDetailsModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
+    <div class="modal-dialog modal-xl">
         <div class="modal-content">
             <div class="modal-header">
-                <h1 class="modal-title fs-5">Payment Details</h1>
+                <h1 class="modal-title fs-5">PayPal API Response Details</h1>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                @* <p style="white-space: pre-wrap; font-family: monospace">
-                    @Html.Raw(@Model.PaymentDetails)
-                </p> *@
-
-                <pre id="payment-details" style="white-space: pre-wrap; font-family: monospace"></pre>
+                @if (string.IsNullOrEmpty(Model.PaymentDetails))
+                {
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i> No payment details available for this order.
+                    </div>
+                }
+                else
+                {
+                    <div class="mb-3">
+                        <div class="btn-group" role="group">
+                            <button type="button" class="btn btn-outline-primary btn-sm" onclick="formatJSON()">
+                                <i class="bi bi-code-slash"></i> Format JSON
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="copyToClipboard()">
+                                <i class="bi bi-clipboard"></i> Copy
+                            </button>
+                        </div>
+                    </div>
+                    <div class="border rounded p-3 bg-light">
+                        <pre id="payment-details" style="white-space: pre-wrap; font-family: 'Courier New', monospace; font-size: 0.9em; max-height: 500px; overflow-y: auto;"></pre>
+                    </div>
+                }
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
@@ -331,14 +348,73 @@
 <script>
     // 取得 JSON 字串
     const paymentDetailsRaw = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.PaymentDetails ?? ""));
+    let currentFormat = 'raw';
 
-    let pretty = paymentDetailsRaw;
-    try {
-      // 將「JSON 字串」先 parse 成物件
-      const obj = JSON.parse(paymentDetailsRaw);
-      // 再 stringify 成漂亮縮排
-      pretty = JSON.stringify(obj, null, 2);
-    } catch { /* 不是合法 JSON 就保持原樣 */ }
+    // 格式化 JSON 函數
+    function formatJSON() {
+        const preElement = document.getElementById("payment-details");
+        if (!preElement) return;
 
-    document.getElementById("payment-details").textContent = pretty;
+        if (currentFormat === 'formatted') {
+            // 切換回原始格式
+            preElement.textContent = paymentDetailsRaw;
+            currentFormat = 'raw';
+        } else {
+            // 格式化 JSON
+            try {
+                const obj = JSON.parse(paymentDetailsRaw);
+                const pretty = JSON.stringify(obj, null, 2);
+                preElement.textContent = pretty;
+                currentFormat = 'formatted';
+            } catch (error) {
+                // 如果不是有效的 JSON，保持原樣
+                preElement.textContent = paymentDetailsRaw;
+                currentFormat = 'raw';
+            }
+        }
+    }
+
+    // 複製到剪貼板函數
+    async function copyToClipboard() {
+        const preElement = document.getElementById("payment-details");
+        if (!preElement) return;
+
+        try {
+            await navigator.clipboard.writeText(preElement.textContent);
+            
+            // 顯示成功訊息
+            const button = event.target.closest('button');
+            const originalText = button.innerHTML;
+            button.innerHTML = '<i class="bi bi-check"></i> Copied!';
+            button.classList.remove('btn-outline-secondary');
+            button.classList.add('btn-success');
+            
+            setTimeout(() => {
+                button.innerHTML = originalText;
+                button.classList.remove('btn-success');
+                button.classList.add('btn-outline-secondary');
+            }, 2000);
+        } catch (error) {
+            console.error('Failed to copy: ', error);
+        }
+    }
+
+    // 初始化顯示
+    document.addEventListener('DOMContentLoaded', function() {
+        const preElement = document.getElementById("payment-details");
+        if (preElement && paymentDetailsRaw) {
+            let pretty = paymentDetailsRaw;
+            try {
+                // 嘗試格式化 JSON
+                const obj = JSON.parse(paymentDetailsRaw);
+                pretty = JSON.stringify(obj, null, 2);
+                currentFormat = 'formatted';
+            } catch {
+                // 不是合法 JSON 就保持原樣
+                pretty = paymentDetailsRaw;
+                currentFormat = 'raw';
+            }
+            preElement.textContent = pretty;
+        }
+    });
 </script>

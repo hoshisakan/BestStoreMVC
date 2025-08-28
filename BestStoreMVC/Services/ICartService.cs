@@ -25,6 +25,12 @@ namespace BestStoreMVC.Services
         decimal GetSubtotal(List<OrderItem> cartItems);
 
         /// <summary>
+        /// 取得運費
+        /// </summary>
+        /// <returns>運費金額</returns>
+        decimal GetShippingFee();
+
+        /// <summary>
         /// 計算購物車總計（含運費）
         /// </summary>
         /// <param name="cartItems">購物車項目清單</param>
@@ -63,6 +69,7 @@ namespace BestStoreMVC.Services
         void ClearCart(HttpResponse response);
     }
 }
+
 
 
 

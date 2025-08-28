@@ -51,9 +51,9 @@ services:
         environment:
             - DOTNET_LANG_NAME=${DOTNET_LANG_NAME}
             - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
-        ports:
+        # ports:
             # - ${DOTNET_HTTP_EXPOSE_PORT}:${DOTNET_HTTP_INNER_PORT}
-            - ${DOTNET_HTTPS_EXPOSE_PORT}:${DOTNET_HTTPS_INNER_PORT}
+            # - ${DOTNET_HTTPS_EXPOSE_PORT}:${DOTNET_HTTPS_INNER_PORT}
         expose:
             # - ${DOTNET_HTTP_EXPOSE_PORT}
             - ${DOTNET_HTTPS_EXPOSE_PORT}
