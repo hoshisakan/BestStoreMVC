@@ -25,6 +25,7 @@ jobs:
                   file: ./Dockerfile
                   tags: test/beststore:latest
                   push: false
+                  load: true
                   build-args: |
                       DOTNET_IMAGE_VERSION=8
                       DOTNET_TIME_ZONE=Asia/Taipei
@@ -42,3 +43,6 @@ jobs:
                   echo ""
                   echo "=== 映像詳細資訊 ==="
                   docker inspect test/beststore:latest | grep -E "(Created|Size|Architecture)"
+                  echo ""
+                  echo "=== 映像標籤檢查 ==="
+                  docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}"

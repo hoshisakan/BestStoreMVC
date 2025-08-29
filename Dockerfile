@@ -20,11 +20,12 @@ RUN apt update && apt install -y wget locales gnupg2 apt-transport-https \
     openssl tzdata build-essential libreadline-dev zlib1g-dev
 
 # Add the Microsoft package signing key to your list of trusted keys and add the package repository
-RUN wget https://packages.microsoft.com/config/ubuntu/22.10/packages-microsoft-prod.deb -O packages-microsoft-prod.deb
+RUN wget https://packages.microsoft.com/config/ubuntu/22.04/packages-microsoft-prod.deb -O packages-microsoft-prod.deb
 RUN dpkg -i packages-microsoft-prod.deb
 RUN rm packages-microsoft-prod.deb
 
-RUN apt install -y dotnet-sdk-${DOTNET_IMAGE_VERSION}.0
+# Update package list and install .NET SDK
+RUN apt update && apt install -y dotnet-sdk-${DOTNET_IMAGE_VERSION}.0
 
 # Install dotnet-ef tool for dotnet core specific version
 RUN dotnet tool install --global dotnet-ef --version ${DOTNET_IMAGE_VERSION}.*
@@ -44,20 +45,21 @@ RUN echo "${DOTNET_TIME_ZONE}" > /etc/timezone && dpkg-reconfigure -f noninterac
 # Clear package lists
 RUN rm -rf /var/lib/apt/lists/*
 
-# Switch to directory of temp local machine project related files
+# Switch to application directory
 WORKDIR /app
 
-# Copy local machine to container
+# Copy project files
 COPY . .
 
-# Switch to directory of temp local machine project related files
-WORKDIR /app
+# Publish web application
+RUN dotnet publish BestStoreMVC/BestStoreMVC.csproj -c Release -o /deploy/BestStoreMVC
 
-# # Publish web application to specific HoshiBookWeb
-RUN dotnet publish -c Release -o /deploy/BestStoreMVC
-
-# # # Switch to deploy web application directory
+# Switch to deploy directory
 WORKDIR /deploy/BestStoreMVC
 
-# # Run the app
+# Expose port
+EXPOSE 80
+EXPOSE 443
+
+# Run the app
 ENTRYPOINT [ "dotnet", "BestStoreMVC.dll" ]

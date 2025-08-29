@@ -365,6 +365,8 @@ jobs:
                       DOTNET_LANG_INPUTFILE=zh_TW
                       DOTNET_LANG_CHARMAP=UTF-8
                       DEBIAN_FRONTEND=noninteractive
+                  # 平台：指定建置平台
+                  platforms: linux/amd64
 
     # 安全性掃描作業
     security-scan:

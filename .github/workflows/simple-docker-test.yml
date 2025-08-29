@@ -1,0 +1,47 @@
+# 簡單 Docker 測試工作流程
+name: Simple Docker Test
+
+on:
+    push:
+        branches: [main]
+    workflow_dispatch:
+
+jobs:
+    simple-docker-test:
+        name: Simple Docker Test
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Build Docker image (traditional)
+              run: |
+                  echo "=== 開始建置 Docker 映像 ==="
+                  docker build \
+                      --build-arg DOTNET_IMAGE_VERSION=8 \
+                      --build-arg DOTNET_TIME_ZONE=Asia/Taipei \
+                      --build-arg DOTNET_LANG_NAME=zh_TW.UTF-8 \
+                      --build-arg DOTNET_LANG_INPUTFILE=zh_TW \
+                      --build-arg DOTNET_LANG_CHARMAP=UTF-8 \
+                      --build-arg DEBIAN_FRONTEND=noninteractive \
+                      -t test/beststore:latest .
+                  echo "=== Docker 建置完成 ==="
+
+            - name: Verify Docker image
+              run: |
+                  echo "=== Docker 映像檢查 ==="
+                  docker images test/beststore:latest
+                  echo ""
+                  echo "=== 映像詳細資訊 ==="
+                  docker inspect test/beststore:latest | grep -E "(Created|Size|Architecture)"
+                  echo ""
+                  echo "=== 所有映像 ==="
+                  docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}"
+
+            - name: Test Docker run
+              run: |
+                  echo "=== 測試 Docker 容器 ==="
+                  # 測試容器是否能正常啟動（5秒後停止）
+                  timeout 10s docker run --rm test/beststore:latest || true
+                  echo "=== 容器測試完成 ==="
