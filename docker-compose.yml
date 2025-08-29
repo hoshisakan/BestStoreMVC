@@ -39,11 +39,11 @@ services:
             dockerfile: Dockerfile
             args:
                 - DOTNET_IMAGE_VERSION=${DOTNET_IMAGE_VERSION}
-                - DOTNET_TIME_ZONE=${DOTNET_TIME_ZONE}
                 - DOTNET_LANG_NAME=${DOTNET_LANG_NAME}
                 - DOTNET_LANG_INPUTFILE=${DOTNET_LANG_INPUTFILE}
                 - DOTNET_LANG_CHARMAP=${DOTNET_LANG_CHARMAP}
-                - DEBIAN_FRONTEND=${DOTNET_DEBIAN_FRONTEND}
+                - DOTNET_DEBIAN_FRONTEND=${DEBIAN_FRONTEND}
+                - DOTNET_TIME_ZONE=${DOTNET_TIME_ZONE}
         image: ${CONTAINER_AUTHOR}/${PROJECT_NAME}/dotnet:${DOTNET_IMAGE_VERSION}
         container_name: ${PROJECT_NAME}_web
         env_file:

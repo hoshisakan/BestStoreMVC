@@ -6,12 +6,10 @@ ARG DOTNET_TIME_ZONE
 ARG DOTNET_LANG_NAME
 ARG DOTNET_LANG_INPUTFILE
 ARG DOTNET_LANG_CHARMAP
-ARG DEBIAN_FRONTEND
-ARG DOTNET_PACKAGES_PATH
 
 # Set environment variables for non-interactive installation
-ENV DEBIAN_FRONTEND=noninteractive
-ENV TZ=Asia/Taipei
+ENV DEBIAN_FRONTEND=${DOTNET_DEBIAN_FRONTEND}
+ENV TZ=${DOTNET_TIME_ZONE}
 
 # Install base packages, build-essential libreadline-dev zlib1g-dev for make install postgresql-client specific version
 RUN apt update && apt install -y wget locales gnupg2 apt-transport-https \
