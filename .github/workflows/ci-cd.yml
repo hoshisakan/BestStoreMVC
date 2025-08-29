@@ -69,12 +69,12 @@ jobs:
             - name: Run unit tests
               # 執行 dotnet test 命令
               run: |
-                # 檢查是否存在測試專案
-                if [ -f "${{ env.PROJECT_NAME }}/${{ env.PROJECT_NAME }}.Tests/${{ env.PROJECT_NAME }}.Tests.csproj" ]; then
-                  dotnet test ${{ env.PROJECT_NAME }}/${{ env.PROJECT_NAME }}.Tests/${{ env.PROJECT_NAME }}.Tests.csproj --configuration ${{ env.BUILD_CONFIGURATION }} --no-build --verbosity normal --collect:"XPlat Code Coverage"
-                else
-                  echo "No test project found. Skipping tests."
-                fi
+                  # 檢查是否存在測試專案
+                  if [ -f "${{ env.PROJECT_NAME }}/${{ env.PROJECT_NAME }}.Tests/${{ env.PROJECT_NAME }}.Tests.csproj" ]; then
+                    dotnet test ${{ env.PROJECT_NAME }}/${{ env.PROJECT_NAME }}.Tests/${{ env.PROJECT_NAME }}.Tests.csproj --configuration ${{ env.BUILD_CONFIGURATION }} --no-build --verbosity normal --collect:"XPlat Code Coverage"
+                  else
+                    echo "No test project found. Skipping tests."
+                  fi
               # 工作目錄：指定執行命令的目錄
               working-directory: ${{ github.workspace }}
               # 即使測試失敗也繼續執行後續步驟
@@ -114,7 +114,7 @@ jobs:
               # 暫時允許失敗
               continue-on-error: true
 
-    # 資料庫遷移作業
+    # 資料庫遷移作業（暫時禁用）
     database-migration:
         # 作業名稱
         name: Database Migration
@@ -125,8 +125,8 @@ jobs:
         # 依賴關係：等待建置和測試作業完成
         needs: build-and-test
 
-        # 條件：只在推送到 main 分支時執行
-        if: github.ref == 'refs/heads/main'
+        # 條件：暫時禁用資料庫遷移
+        if: false
 
         # 作業步驟
         steps:
@@ -140,7 +140,17 @@ jobs:
               with:
                   dotnet-version: ${{ env.DOTNET_VERSION }}
 
-            # 步驟 3: 設定資料庫連線
+            # 步驟 3: 安裝 Entity Framework Core CLI 工具
+            - name: Install Entity Framework Core CLI
+              run: dotnet tool install --global dotnet-ef
+              working-directory: ${{ github.workspace }}
+
+            # 步驟 4: 還原專案依賴
+            - name: Restore project dependencies
+              run: dotnet restore ${{ env.PROJECT_NAME }}/${{ env.PROJECT_NAME }}.csproj
+              working-directory: ${{ github.workspace }}
+
+            # 步驟 5: 設定資料庫連線
             - name: Setup database connection
               # 使用環境變數設定資料庫連線字串
               run: |
@@ -148,7 +158,7 @@ jobs:
               # 工作目錄：指定執行命令的目錄
               working-directory: ${{ github.workspace }}
 
-            # 步驟 4: 執行資料庫遷移
+            # 步驟 6: 執行資料庫遷移
             - name: Run database migrations
               # 執行 Entity Framework 遷移
               run: dotnet ef database update --project ${{ env.PROJECT_NAME }}/${{ env.PROJECT_NAME }}.csproj
@@ -268,20 +278,16 @@ jobs:
               env:
                   SSH_PRIVATE_KEY: ${{ secrets.PRODUCTION_SSH_KEY }}
 
-            # 步驟 5: 發送部署通知
-            - name: Send deployment notification
-              # 使用 Slack 發送通知
-              uses: 8398a7/action-slack@v3
-              # 條件：部署成功時發送通知
-              if: success()
-              # 設定 Slack 通知
-              with:
-                  status: success
-                  channel: '#deployments'
-                  text: 'Production deployment completed successfully!'
-              # 環境變數：Slack Webhook URL
-              env:
-                  SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+            # 步驟 5: 發送部署通知（已移除 Slack，可選）
+            # - name: Send deployment notification
+            #   uses: 8398a7/action-slack@v3
+            #   if: success()
+            #   with:
+            #       status: success
+            #       channel: '#deployments'
+            #       text: 'Production deployment completed successfully!'
+            #   env:
+            #       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
     # Docker 建置作業
     docker-build:

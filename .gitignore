@@ -18,4 +18,5 @@ secrets
 temp
 full_structure.txt
 Refactoring
-SECRETS_SETUP.md
+.github/*.md
+BestStoreMVC_Tutorial.md
