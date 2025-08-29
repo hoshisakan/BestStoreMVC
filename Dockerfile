@@ -9,6 +9,10 @@ ARG DOTNET_LANG_CHARMAP
 ARG DEBIAN_FRONTEND
 ARG DOTNET_PACKAGES_PATH
 
+# Set environment variables for non-interactive installation
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=Asia/Taipei
+
 # Install base packages, build-essential libreadline-dev zlib1g-dev for make install postgresql-client specific version
 RUN apt update && apt install -y wget locales gnupg2 apt-transport-https \
     ca-certificates curl software-properties-common \
@@ -34,8 +38,8 @@ RUN localedef -i ${DOTNET_LANG_INPUTFILE} -c -f ${DOTNET_LANG_CHARMAP} -A /usr/s
 # Set timezone to Asia/Taipei
 RUN ln -sf /usr/share/zoneinfo/${DOTNET_TIME_ZONE} /etc/localtime
 
-# Reset tzdata software package let user set timezone take effect
-RUN dpkg-reconfigure -f noninteractive tzdata
+# Configure timezone non-interactively
+RUN echo "${DOTNET_TIME_ZONE}" > /etc/timezone && dpkg-reconfigure -f noninteractive tzdata
 
 # Clear package lists
 RUN rm -rf /var/lib/apt/lists/*

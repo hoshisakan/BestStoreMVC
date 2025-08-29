@@ -315,8 +315,8 @@ jobs:
         # 依賴關係：等待建置和測試作業完成
         needs: build-and-test
 
-        # 條件：只在推送到 main 分支時執行
-        if: github.ref == 'refs/heads/main'
+        # 條件：暫時禁用 Docker 建置（測試中）
+        if: false
 
         # 作業步驟
         steps:
@@ -357,6 +357,14 @@ jobs:
                   # 建置快取
                   cache-from: type=gha
                   cache-to: type=gha,mode=max
+                  # 建置參數：傳遞給 Dockerfile 的參數
+                  build-args: |
+                      DOTNET_IMAGE_VERSION=8
+                      DOTNET_TIME_ZONE=Asia/Taipei
+                      DOTNET_LANG_NAME=zh_TW.UTF-8
+                      DOTNET_LANG_INPUTFILE=zh_TW
+                      DOTNET_LANG_CHARMAP=UTF-8
+                      DEBIAN_FRONTEND=noninteractive
 
     # 安全性掃描作業
     security-scan:
