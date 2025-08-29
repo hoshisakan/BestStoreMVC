@@ -338,45 +338,19 @@ namespace BestStoreMVC.Controllers
         {
             try
             {
-                // 建立範例產品資料
-                var sampleProducts = new List<Product>
-                {
-                    new Product
-                    {
-                        Id = 1,
-                        Name = "Sample Product 1",
-                        Brand = "Sample Brand",
-                        Category = "Electronics",
-                        Price = 99.99m,
-                        Description = "This is a sample product description",
-                        ImageFileName = "sample1.jpg",
-                        CreatedAt = DateTime.Now
-                    },
-                    new Product
-                    {
-                        Id = 2,
-                        Name = "Sample Product 2",
-                        Brand = "Another Brand",
-                        Category = "Clothing",
-                        Price = 49.99m,
-                        Description = "Another sample product description",
-                        ImageFileName = "sample2.jpg",
-                        CreatedAt = DateTime.Now
-                    }
-                };
-
-                // 透過 Excel 服務建立範本
-                var excelBytes = await _excelService.ExportProductsToExcelAsync(sampleProducts);
+                // 透過 Excel 服務產生範本檔案
+                var excelBytes = await _excelService.ExportProductTemplateAsync();
                 
                 // 設定檔案名稱
-                string fileName = "Product_Import_Template.xlsx";
+                string fileName = $"ProductImportTemplate_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
                 
                 // 回傳 Excel 檔案下載
                 return File(excelBytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                // 發生例外時，重導向到匯入頁面
+                // 發生例外時，重導向到匯入頁面並顯示錯誤訊息
+                TempData["ErrorMessage"] = $"範本下載失敗: {ex.Message}";
                 return RedirectToAction("ImportFromExcel");
             }
         }
