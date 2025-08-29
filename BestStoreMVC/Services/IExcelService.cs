@@ -42,6 +42,12 @@ namespace BestStoreMVC.Services
         /// </summary>
         /// <returns>Excel 範本檔案的 byte 陣列</returns>
         Task<byte[]> ExportUserTemplateAsync();
+
+        /// <summary>
+        /// 匯出產品匯入範本
+        /// </summary>
+        /// <returns>Excel 範本檔案的 byte 陣列</returns>
+        Task<byte[]> ExportProductTemplateAsync();
     }
 
     /// <summary>

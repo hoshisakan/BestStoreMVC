@@ -289,6 +289,68 @@ namespace BestStoreMVC.Services
         }
 
         /// <summary>
+        /// 匯出產品匯入範本
+        /// </summary>
+        /// <returns>Excel 範本檔案的 byte 陣列</returns>
+        public async Task<byte[]> ExportProductTemplateAsync()
+        {
+            using var package = new ExcelPackage();
+            var worksheet = package.Workbook.Worksheets.Add("ProductImportTemplate");
+
+            // 設定標題列 - 包含產品匯入需要的欄位
+            worksheet.Cells[1, 1].Value = "Name";
+            worksheet.Cells[1, 2].Value = "Brand";
+            worksheet.Cells[1, 3].Value = "Category";
+            worksheet.Cells[1, 4].Value = "Price";
+            worksheet.Cells[1, 5].Value = "Description";
+            worksheet.Cells[1, 6].Value = "ImageFileName";
+
+            // 設定標題列樣式
+            using (var range = worksheet.Cells[1, 1, 1, 6])
+            {
+                range.Style.Font.Bold = true;
+                range.Style.Fill.PatternType = OfficeOpenXml.Style.ExcelFillStyle.Solid;
+                range.Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.LightGray);
+                range.Style.Border.BorderAround(OfficeOpenXml.Style.ExcelBorderStyle.Thin);
+            }
+
+            // 填入範例資料
+            var sampleData = new[]
+            {
+                new { Name = "Sample Product 1", Brand = "Sample Brand", Category = "Electronics", Price = 99.99m, Description = "This is a sample product description", ImageFileName = "sample1.jpg" },
+                new { Name = "Sample Product 2", Brand = "Another Brand", Category = "Clothing", Price = 49.99m, Description = "Another sample product description", ImageFileName = "sample2.jpg" },
+                new { Name = "Sample Product 3", Brand = "Test Brand", Category = "Books", Price = 29.99m, Description = "A book product description", ImageFileName = "sample3.jpg" }
+            };
+
+            for (int i = 0; i < sampleData.Length; i++)
+            {
+                var data = sampleData[i];
+                var row = i + 2;
+
+                worksheet.Cells[row, 1].Value = data.Name;
+                worksheet.Cells[row, 2].Value = data.Brand;
+                worksheet.Cells[row, 3].Value = data.Category;
+                worksheet.Cells[row, 4].Value = data.Price;
+                worksheet.Cells[row, 5].Value = data.Description;
+                worksheet.Cells[row, 6].Value = data.ImageFileName;
+            }
+
+            // 自動調整欄寬
+            worksheet.Cells.AutoFitColumns();
+
+            // 設定邊框
+            using (var range = worksheet.Cells[1, 1, sampleData.Length + 1, 6])
+            {
+                range.Style.Border.Top.Style = OfficeOpenXml.Style.ExcelBorderStyle.Thin;
+                range.Style.Border.Left.Style = OfficeOpenXml.Style.ExcelBorderStyle.Thin;
+                range.Style.Border.Right.Style = OfficeOpenXml.Style.ExcelBorderStyle.Thin;
+                range.Style.Border.Bottom.Style = OfficeOpenXml.Style.ExcelBorderStyle.Thin;
+            }
+
+            return await package.GetAsByteArrayAsync();
+        }
+
+        /// <summary>
         /// 匯出產品資料到 Excel 檔案
         /// </summary>
         /// <param name="products">產品清單</param>
@@ -382,16 +444,16 @@ namespace BestStoreMVC.Services
                     {
                         var product = new Product
                         {
-                            Name = GetCellValue(worksheet, row, 2),
-                            Brand = GetCellValue(worksheet, row, 3),
-                            Category = GetCellValue(worksheet, row, 4),
-                            Description = GetCellValue(worksheet, row, 6),
-                            ImageFileName = GetCellValue(worksheet, row, 7),
+                            Name = GetCellValue(worksheet, row, 1),
+                            Brand = GetCellValue(worksheet, row, 2),
+                            Category = GetCellValue(worksheet, row, 3),
+                            Description = GetCellValue(worksheet, row, 5),
+                            ImageFileName = GetCellValue(worksheet, row, 6),
                             CreatedAt = DateTime.Now
                         };
 
                         // 解析價格
-                        var priceValue = GetCellValue(worksheet, row, 5);
+                        var priceValue = GetCellValue(worksheet, row, 4);
                         if (decimal.TryParse(priceValue, NumberStyles.Any, CultureInfo.InvariantCulture, out decimal price))
                         {
                             product.Price = price;
