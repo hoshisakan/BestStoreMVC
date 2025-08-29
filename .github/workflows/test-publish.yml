@@ -1,0 +1,67 @@
+# 測試發布工作流程
+name: Test Publish
+
+on:
+    push:
+        branches: [main]
+    workflow_dispatch:
+
+env:
+    DOTNET_VERSION: '8.0.x'
+    PROJECT_NAME: 'BestStoreMVC'
+    BUILD_CONFIGURATION: 'Release'
+
+jobs:
+    test-publish:
+        name: Test Publish
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Setup .NET ${{ env.DOTNET_VERSION }}
+              uses: actions/setup-dotnet@v4
+              with:
+                  dotnet-version: ${{ env.DOTNET_VERSION }}
+
+            - name: Debug project structure
+              run: |
+                  echo "=== 專案結構檢查 ==="
+                  echo "當前目錄: $(pwd)"
+                  echo "專案檔案:"
+                  find . -name "*.csproj" -type f
+                  echo ""
+                  echo "BestStoreMVC 目錄內容:"
+                  ls -la BestStoreMVC/
+
+            - name: Restore dependencies
+              run: dotnet restore ${{ env.PROJECT_NAME }}/${{ env.PROJECT_NAME }}.csproj --verbosity normal
+              working-directory: ${{ github.workspace }}
+
+            - name: Build project
+              run: dotnet build ${{ env.PROJECT_NAME }}/${{ env.PROJECT_NAME }}.csproj --configuration ${{ env.BUILD_CONFIGURATION }} --no-restore --verbosity normal
+              working-directory: ${{ github.workspace }}
+
+            - name: Publish application
+              run: dotnet publish ${{ env.PROJECT_NAME }}/${{ env.PROJECT_NAME }}.csproj --configuration ${{ env.BUILD_CONFIGURATION }} --output ./publish --no-restore --verbosity normal
+              working-directory: ${{ github.workspace }}
+
+            - name: Verify publish output
+              run: |
+                  echo "=== 發布輸出檢查 ==="
+                  echo "發布目錄內容:"
+                  ls -la ./publish/
+                  echo ""
+                  echo "主要檔案:"
+                  find ./publish/ -name "*.dll" -o -name "*.exe" | head -10
+                  echo ""
+                  echo "發布大小:"
+                  du -sh ./publish/
+
+            - name: Upload publish artifacts
+              uses: actions/upload-artifact@v4
+              with:
+                  name: test-publish-files
+                  path: ./publish
+                  retention-days: 7
