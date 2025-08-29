@@ -18,6 +18,12 @@ namespace BestStoreMVC.Services
         Task<(IEnumerable<ApplicationUser> Users, int TotalPages)> GetPagedUsersAsync(int pageIndex, int pageSize);
 
         /// <summary>
+        /// 取得所有使用者清單（用於匯出）
+        /// </summary>
+        /// <returns>所有使用者清單和角色對應</returns>
+        Task<(List<ApplicationUser> Users, Dictionary<string, List<string>> Roles)> GetAllUsersAsync();
+
+        /// <summary>
         /// 根據 ID 取得使用者詳細資料
         /// </summary>
         /// <param name="id">使用者 ID</param>
@@ -40,6 +46,13 @@ namespace BestStoreMVC.Services
         /// <param name="currentUserId">目前登入使用者 ID</param>
         /// <returns>操作結果</returns>
         Task<UserOperationResult> DeleteUserAsync(string id, string currentUserId);
+
+        /// <summary>
+        /// 批量匯入使用者
+        /// </summary>
+        /// <param name="userDataList">使用者資料清單</param>
+        /// <returns>匯入結果</returns>
+        Task<UserImportResult> ImportUsersAsync(List<ExcelUserData> userDataList);
     }
 
     /// <summary>
@@ -87,6 +100,32 @@ namespace BestStoreMVC.Services
         /// 是否為自己操作自己
         /// </summary>
         public bool IsSelfOperation { get; set; }
+    }
+
+    /// <summary>
+    /// 使用者匯入結果
+    /// </summary>
+    public class UserImportResult
+    {
+        /// <summary>
+        /// 匯入是否成功
+        /// </summary>
+        public bool IsSuccess { get; set; }
+        
+        /// <summary>
+        /// 成功訊息
+        /// </summary>
+        public string Message { get; set; } = "";
+        
+        /// <summary>
+        /// 成功匯入的使用者數量
+        /// </summary>
+        public int SuccessCount { get; set; }
+        
+        /// <summary>
+        /// 失敗的記錄清單
+        /// </summary>
+        public List<string> Errors { get; set; } = new();
     }
 
     /// <summary>

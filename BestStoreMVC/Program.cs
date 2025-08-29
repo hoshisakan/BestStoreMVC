@@ -118,15 +118,23 @@ if (!app.Environment.IsDevelopment())
 var certStatus = certificateService.GetCertificateStatus();
 
 // 只有在有有效憑證時才啟用 HTTPS 重定向
-if (certStatus.IsValid)
+try
 {
-    app.UseHttpsRedirection();
-    Console.WriteLine("[INFO] HTTPS redirection enabled.");
-}
-else
+    if (certStatus.IsValid)
+    {
+        app.UseHttpsRedirection();
+        Console.WriteLine("[INFO] HTTPS redirection enabled.");
+    }
+    else
+    {
+        Console.WriteLine($"[INFO] HTTPS redirection disabled: {certStatus.Message}");
+    }
+} catch (Exception ex)
 {
-    Console.WriteLine($"[INFO] HTTPS redirection disabled: {certStatus.Message}");
+    Console.WriteLine($"[ERROR] Failed to configure HTTPS redirection: {ex.Message}");
+    Console.WriteLine("[INFO] HTTPS redirection disabled, using HTTP only.");
 }
+
 app.UseStaticFiles();
 
 app.UseRouting();

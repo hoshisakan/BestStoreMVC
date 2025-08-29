@@ -50,6 +50,26 @@ namespace BestStoreMVC.Services
         }
 
         /// <summary>
+        /// 取得所有使用者清單（用於匯出）
+        /// </summary>
+        /// <returns>所有使用者清單和角色對應</returns>
+        public async Task<(List<ApplicationUser> Users, Dictionary<string, List<string>> Roles)> GetAllUsersAsync()
+        {
+            // 取得所有使用者
+            var users = await _unitOfWork.Users.GetAllUsersAsync();
+            var roles = new Dictionary<string, List<string>>();
+
+            // 取得每個使用者的角色
+            foreach (var user in users)
+            {
+                var userRoles = await _unitOfWork.Users.GetUserRolesAsync(user);
+                roles[user.Id] = userRoles.ToList();
+            }
+
+            return (users.ToList(), roles);
+        }
+
+        /// <summary>
         /// 根據 ID 取得使用者詳細資料
         /// </summary>
         /// <param name="id">使用者 ID</param>
@@ -264,6 +284,83 @@ namespace BestStoreMVC.Services
             {
                 return (false, $"Error checking if user can be deleted: {ex.Message}");
             }
+        }
+
+        /// <summary>
+        /// 批量匯入使用者
+        /// </summary>
+        /// <param name="userDataList">使用者資料清單</param>
+        /// <returns>匯入結果</returns>
+        public async Task<UserImportResult> ImportUsersAsync(List<ExcelUserData> userDataList)
+        {
+            var result = new UserImportResult();
+            var errors = new List<string>();
+
+            foreach (var userData in userDataList)
+            {
+                try
+                {
+                    // 檢查 Email 是否已存在
+                    var existingUser = await _unitOfWork.Users.GetUserByEmailAsync(userData.Email);
+                    if (existingUser != null)
+                    {
+                        errors.Add($"Email '{userData.Email}' 已存在");
+                        continue;
+                    }
+
+                    // 建立新使用者
+                    var newUser = new ApplicationUser
+                    {
+                        UserName = userData.Email,
+                        Email = userData.Email,
+                        FirstName = userData.FirstName,
+                        LastName = userData.LastName,
+                        PhoneNumber = userData.PhoneNumber,
+                        Address = userData.Address,
+                        CreatedAt = DateTime.Now,
+                        EmailConfirmed = true // 匯入的使用者預設為已確認
+                    };
+
+                    // 建立使用者帳戶
+                    var createResult = await _unitOfWork.Users.CreateUserAsync(newUser, userData.Password);
+                    if (!createResult.Succeeded)
+                    {
+                        errors.Add($"建立使用者 '{userData.Email}' 失敗: {string.Join(", ", createResult.Errors.Select(e => e.Description))}");
+                        continue;
+                    }
+
+                    // 設定角色
+                    if (!string.IsNullOrWhiteSpace(userData.Role))
+                    {
+                        var roleResult = await _unitOfWork.Users.AddUserToRoleAsync(newUser, userData.Role.ToLower());
+                        if (!roleResult.Succeeded)
+                        {
+                            errors.Add($"設定角色失敗 '{userData.Email}': {string.Join(", ", roleResult.Errors.Select(e => e.Description))}");
+                        }
+                    }
+                    else
+                    {
+                        // 預設角色為 client
+                        var roleResult = await _unitOfWork.Users.AddUserToRoleAsync(newUser, "client");
+                        if (!roleResult.Succeeded)
+                        {
+                            errors.Add($"設定預設角色失敗 '{userData.Email}': {string.Join(", ", roleResult.Errors.Select(e => e.Description))}");
+                        }
+                    }
+
+                    result.SuccessCount++;
+                }
+                catch (Exception ex)
+                {
+                    errors.Add($"處理使用者 '{userData.Email}' 時發生錯誤: {ex.Message}");
+                }
+            }
+
+            result.IsSuccess = result.SuccessCount > 0;
+            result.Message = $"匯入完成。成功: {result.SuccessCount} 筆，失敗: {errors.Count} 筆";
+            result.Errors = errors;
+
+            return result;
         }
     }
 }

@@ -220,6 +220,47 @@ namespace BestStoreMVC.Services.Repository
                 return 0;
             }
         }
+
+        /// <summary>
+        /// 取得所有使用者（不分頁）
+        /// </summary>
+        /// <returns>所有使用者清單</returns>
+        public async Task<IEnumerable<ApplicationUser>> GetAllUsersAsync()
+        {
+            return await _userManager.Users.OrderByDescending(u => u.CreatedAt).ToListAsync();
+        }
+
+        /// <summary>
+        /// 根據 Email 取得使用者
+        /// </summary>
+        /// <param name="email">Email 地址</param>
+        /// <returns>使用者物件，如果找不到則回傳 null</returns>
+        public async Task<ApplicationUser?> GetUserByEmailAsync(string email)
+        {
+            return await _userManager.FindByEmailAsync(email);
+        }
+
+        /// <summary>
+        /// 建立新使用者
+        /// </summary>
+        /// <param name="user">使用者物件</param>
+        /// <param name="password">密碼</param>
+        /// <returns>建立結果</returns>
+        public async Task<IdentityResult> CreateUserAsync(ApplicationUser user, string password)
+        {
+            return await _userManager.CreateAsync(user, password);
+        }
+
+        /// <summary>
+        /// 將使用者加入角色
+        /// </summary>
+        /// <param name="user">使用者物件</param>
+        /// <param name="roleName">角色名稱</param>
+        /// <returns>操作結果</returns>
+        public async Task<IdentityResult> AddUserToRoleAsync(ApplicationUser user, string roleName)
+        {
+            return await _userManager.AddToRoleAsync(user, roleName);
+        }
     }
 }
 

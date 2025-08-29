@@ -21,6 +21,9 @@ namespace BestStoreMVC.Controllers
         // 使用者管理器，用於取得目前登入的使用者資訊
         private readonly UserManager<ApplicationUser> _userManager;
         
+        // Excel 服務，用於處理 Excel 匯入匯出
+        private readonly IExcelService _excelService;
+        
         // 每頁顯示的使用者數量
         private readonly int _pageSize = 5;
 
@@ -29,10 +32,12 @@ namespace BestStoreMVC.Controllers
         /// </summary>
         /// <param name="userService">使用者服務</param>
         /// <param name="userManager">使用者管理器</param>
-        public UsersController(IUserService userService, UserManager<ApplicationUser> userManager)
+        /// <param name="excelService">Excel 服務</param>
+        public UsersController(IUserService userService, UserManager<ApplicationUser> userManager, IExcelService excelService)
         {
             _userService = userService;
             _userManager = userManager;
+            _excelService = excelService;
         }
 
         /// <summary>
@@ -178,6 +183,137 @@ namespace BestStoreMVC.Controllers
                 TempData["ErrorMessage"] = result.ErrorMessage;
                 return RedirectToAction("Details", "Users", new { id = id });
             }
+        }
+
+        /// <summary>
+        /// 匯出使用者資料到 Excel
+        /// </summary>
+        /// <returns>Excel 檔案</returns>
+        public async Task<IActionResult> ExportToExcel()
+        {
+            try
+            {
+                // 取得所有使用者資料
+                var (users, roles) = await _userService.GetAllUsersAsync();
+
+                // 產生 Excel 檔案
+                var excelBytes = await _excelService.ExportUsersToExcelAsync(users, roles);
+
+                // 回傳 Excel 檔案
+                return File(excelBytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"Users_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx");
+            }
+            catch (Exception ex)
+            {
+                TempData["ErrorMessage"] = $"匯出失敗: {ex.Message}";
+                return RedirectToAction("Index");
+            }
+        }
+
+        /// <summary>
+        /// 下載 Excel 匯入範本
+        /// </summary>
+        /// <returns>Excel 範本檔案</returns>
+        public async Task<IActionResult> DownloadTemplate()
+        {
+            try
+            {
+                // 產生範本 Excel 檔案
+                var excelBytes = await _excelService.ExportUserTemplateAsync();
+
+                // 回傳 Excel 檔案
+                return File(excelBytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"UserImportTemplate_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx");
+            }
+            catch (Exception ex)
+            {
+                TempData["ErrorMessage"] = $"範本下載失敗: {ex.Message}";
+                return RedirectToAction("ImportFromExcel");
+            }
+        }
+
+        /// <summary>
+        /// 顯示 Excel 匯入頁面
+        /// </summary>
+        /// <returns>匯入頁面</returns>
+        public IActionResult ImportFromExcel()
+        {
+            return View();
+        }
+
+        /// <summary>
+        /// 處理 Excel 檔案匯入
+        /// </summary>
+        /// <param name="file">上傳的 Excel 檔案</param>
+        /// <returns>匯入結果</returns>
+        [HttpPost]
+        public async Task<IActionResult> ImportFromExcel(IFormFile file)
+        {
+            if (file == null || file.Length == 0)
+            {
+                TempData["ErrorMessage"] = "請選擇要匯入的 Excel 檔案";
+                return RedirectToAction("ImportFromExcel");
+            }
+
+            // 檢查檔案格式
+            var allowedExtensions = new[] { ".xlsx", ".xls" };
+            var fileExtension = Path.GetExtension(file.FileName).ToLowerInvariant();
+            if (!allowedExtensions.Contains(fileExtension))
+            {
+                TempData["ErrorMessage"] = "只支援 .xlsx 和 .xls 格式的檔案";
+                return RedirectToAction("ImportFromExcel");
+            }
+
+            try
+            {
+                using var stream = file.OpenReadStream();
+                
+                // 解析 Excel 檔案
+                var importResult = await _excelService.ImportUsersFromExcelAsync(stream);
+
+                if (importResult.IsSuccess && importResult.ValidUsers.Any())
+                {
+                    // 批量匯入使用者
+                    var userImportResult = await _userService.ImportUsersAsync(importResult.ValidUsers);
+
+                    if (userImportResult.IsSuccess)
+                    {
+                        TempData["SuccessMessage"] = userImportResult.Message;
+                        
+                        // 如果有錯誤，也顯示出來
+                        if (userImportResult.Errors.Any())
+                        {
+                            TempData["WarningMessage"] = $"部分匯入失敗:\n{string.Join("\n", userImportResult.Errors.Take(5))}";
+                            if (userImportResult.Errors.Count > 5)
+                            {
+                                TempData["WarningMessage"] += $"\n... 還有 {userImportResult.Errors.Count - 5} 個錯誤";
+                            }
+                        }
+                    }
+                    else
+                    {
+                        TempData["ErrorMessage"] = userImportResult.Message;
+                    }
+                }
+                else
+                {
+                    TempData["ErrorMessage"] = importResult.Message;
+                    
+                    // 顯示驗證錯誤
+                    if (importResult.Errors.Any())
+                    {
+                        TempData["WarningMessage"] = $"檔案格式錯誤:\n{string.Join("\n", importResult.Errors.Take(5))}";
+                        if (importResult.Errors.Count > 5)
+                        {
+                            TempData["WarningMessage"] += $"\n... 還有 {importResult.Errors.Count - 5} 個錯誤";
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                TempData["ErrorMessage"] = $"匯入過程中發生錯誤: {ex.Message}";
+            }
+
+            return RedirectToAction("ImportFromExcel");
         }
     }
 }

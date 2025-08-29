@@ -6,6 +6,17 @@
 
 <h2 class="text-center mb-5">List of Users</h2>
 
+<div class="row mb-3">
+    <div class="col-md-6">
+        <a class="btn btn-success" asp-controller="Users" asp-action="ExportToExcel">
+            <i class="fas fa-download"></i> 匯出 Excel
+        </a>
+        <a class="btn btn-primary" asp-controller="Users" asp-action="ImportFromExcel">
+            <i class="fas fa-upload"></i> 匯入 Excel
+        </a>
+    </div>
+</div>
+
 <table class="table">
     <thead>
         <tr>

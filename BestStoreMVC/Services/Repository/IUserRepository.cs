@@ -85,5 +85,34 @@ namespace BestStoreMVC.Services.Repository
         /// </summary>
         /// <returns>角色清單</returns>
         Task<IEnumerable<IdentityRole>> GetAllRolesAsync();
+
+        /// <summary>
+        /// 取得所有使用者（不分頁）
+        /// </summary>
+        /// <returns>所有使用者清單</returns>
+        Task<IEnumerable<ApplicationUser>> GetAllUsersAsync();
+
+        /// <summary>
+        /// 根據 Email 取得使用者
+        /// </summary>
+        /// <param name="email">Email 地址</param>
+        /// <returns>使用者物件，如果找不到則回傳 null</returns>
+        Task<ApplicationUser?> GetUserByEmailAsync(string email);
+
+        /// <summary>
+        /// 建立新使用者
+        /// </summary>
+        /// <param name="user">使用者物件</param>
+        /// <param name="password">密碼</param>
+        /// <returns>建立結果</returns>
+        Task<IdentityResult> CreateUserAsync(ApplicationUser user, string password);
+
+        /// <summary>
+        /// 將使用者加入角色
+        /// </summary>
+        /// <param name="user">使用者物件</param>
+        /// <param name="roleName">角色名稱</param>
+        /// <returns>操作結果</returns>
+        Task<IdentityResult> AddUserToRoleAsync(ApplicationUser user, string roleName);
     }
 }

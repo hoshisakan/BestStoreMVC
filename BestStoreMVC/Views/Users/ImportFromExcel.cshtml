@@ -1,0 +1,144 @@
+@{
+    ViewData["Title"] = "匯入使用者";
+}
+
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title mb-0">
+                        <i class="fas fa-upload"></i> 匯入使用者資料
+                    </h3>
+                </div>
+                <div class="card-body">
+                    @if (TempData["SuccessMessage"] != null)
+                    {
+                        <div class="alert alert-success alert-dismissible fade show" role="alert">
+                            <i class="fas fa-check-circle"></i> @TempData["SuccessMessage"]
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    }
+
+                    @if (TempData["ErrorMessage"] != null)
+                    {
+                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                            <i class="fas fa-exclamation-triangle"></i> @TempData["ErrorMessage"]
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    }
+
+                    @if (TempData["WarningMessage"] != null)
+                    {
+                        <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                            <i class="fas fa-exclamation-triangle"></i> @TempData["WarningMessage"]
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    }
+
+                    <form method="post" enctype="multipart/form-data">
+                        <div class="mb-3">
+                            <label for="file" class="form-label">選擇 Excel 檔案</label>
+                            <input type="file" class="form-control" id="file" name="file" accept=".xlsx,.xls" required>
+                            <div class="form-text">支援 .xlsx 和 .xls 格式的檔案</div>
+                        </div>
+
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <a class="btn btn-secondary me-md-2" asp-controller="Users" asp-action="Index">
+                                <i class="fas fa-arrow-left"></i> 返回列表
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-upload"></i> 開始匯入
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-info-circle"></i> 匯入說明
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <h6>Excel 檔案格式要求：</h6>
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-sm">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>欄位名稱</th>
+                                    <th>必填</th>
+                                    <th>說明</th>
+                                    <th>範例</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>FirstName</td>
+                                    <td><span class="badge bg-danger">必填</span></td>
+                                    <td>使用者名字</td>
+                                    <td>John</td>
+                                </tr>
+                                <tr>
+                                    <td>LastName</td>
+                                    <td><span class="badge bg-danger">必填</span></td>
+                                    <td>使用者姓氏</td>
+                                    <td>Doe</td>
+                                </tr>
+                                <tr>
+                                    <td>Email</td>
+                                    <td><span class="badge bg-danger">必填</span></td>
+                                    <td>電子郵件地址（必須是有效格式）</td>
+                                    <td>john.doe@example.com</td>
+                                </tr>
+                                <tr>
+                                    <td>PhoneNumber</td>
+                                    <td><span class="badge bg-secondary">選填</span></td>
+                                    <td>電話號碼</td>
+                                    <td>0912345678</td>
+                                </tr>
+                                <tr>
+                                    <td>Address</td>
+                                    <td><span class="badge bg-secondary">選填</span></td>
+                                    <td>地址</td>
+                                    <td>台北市信義區...</td>
+                                </tr>
+                                <tr>
+                                    <td>Role</td>
+                                    <td><span class="badge bg-secondary">選填</span></td>
+                                    <td>使用者角色（admin/seller/client）</td>
+                                    <td>client</td>
+                                </tr>
+                                <tr>
+                                    <td>Password</td>
+                                    <td><span class="badge bg-danger">必填</span></td>
+                                    <td>密碼（至少 6 個字元）</td>
+                                    <td>password123</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="alert alert-info mt-3">
+                        <h6><i class="fas fa-lightbulb"></i> 注意事項：</h6>
+                        <ul class="mb-0">
+                            <li>第一行必須是標題列（欄位名稱）</li>
+                            <li>Email 地址必須是唯一且有效的格式</li>
+                            <li>如果未指定角色，預設會設定為 "client"</li>
+                            <li>匯入的使用者預設為已確認 Email 狀態</li>
+                            <li>如果 Email 已存在，該筆資料會被跳過</li>
+                            <li>建議先下載現有使用者資料作為範本</li>
+                        </ul>
+                    </div>
+
+                                         <div class="text-center mt-3">
+                         <a class="btn btn-outline-success" asp-controller="Users" asp-action="DownloadTemplate">
+                             <i class="fas fa-download"></i> 下載範本
+                         </a>
+                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
