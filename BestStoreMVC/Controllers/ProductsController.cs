@@ -1,4 +1,5 @@
-﻿using BestStoreMVC.Models.ViewModel;
+﻿using BestStoreMVC.Models;
+using BestStoreMVC.Models.ViewModel;
 using BestStoreMVC.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -16,6 +17,9 @@ namespace BestStoreMVC.Controllers
         // 產品服務，用於處理產品相關的業務邏輯
         private readonly IProductService _productService;
         
+        // Excel 服務，用於處理 Excel 匯入匯出
+        private readonly IExcelService _excelService;
+        
         // Web 主機環境，用於存取檔案系統路徑
         private readonly IWebHostEnvironment _environment;
         
@@ -26,10 +30,12 @@ namespace BestStoreMVC.Controllers
         /// 建構函式，注入必要的依賴
         /// </summary>
         /// <param name="productService">產品服務</param>
+        /// <param name="excelService">Excel 服務</param>
         /// <param name="environment">Web 主機環境</param>
-        public ProductsController(IProductService productService, IWebHostEnvironment environment)
+        public ProductsController(IProductService productService, IExcelService excelService, IWebHostEnvironment environment)
         {
             _productService = productService;
+            _excelService = excelService;
             _environment = environment;
         }
 
@@ -224,6 +230,154 @@ namespace BestStoreMVC.Controllers
                 // 發生例外時，記錄錯誤並重導向到產品列表頁面
                 // Log the exception
                 return RedirectToAction("Index", "Products");
+            }
+        }
+
+        /// <summary>
+        /// 匯出產品到 Excel 檔案
+        /// </summary>
+        /// <returns>Excel 檔案下載</returns>
+        public async Task<IActionResult> ExportToExcel()
+        {
+            try
+            {
+                // 取得所有產品
+                var products = await _productService.GetAllProductsAsync();
+                
+                // 透過 Excel 服務匯出產品
+                var excelBytes = await _excelService.ExportProductsToExcelAsync(products);
+                
+                // 設定檔案名稱
+                string fileName = $"Products_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
+                
+                // 回傳 Excel 檔案下載
+                return File(excelBytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
+            }
+            catch (Exception)
+            {
+                // 發生例外時，重導向到產品列表頁面
+                return RedirectToAction("Index", "Products");
+            }
+        }
+
+        /// <summary>
+        /// 顯示 Excel 匯入頁面
+        /// </summary>
+        /// <returns>Excel 匯入頁面</returns>
+        public IActionResult ImportFromExcel()
+        {
+            return View();
+        }
+
+        /// <summary>
+        /// 處理 Excel 檔案匯入
+        /// </summary>
+        /// <param name="file">上傳的 Excel 檔案</param>
+        /// <returns>匯入結果頁面</returns>
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ImportFromExcel(IFormFile file)
+        {
+            if (file == null || file.Length == 0)
+            {
+                ModelState.AddModelError("", "請選擇要匯入的 Excel 檔案");
+                return View();
+            }
+
+            // 檢查檔案副檔名
+            var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+            if (extension != ".xlsx" && extension != ".xls")
+            {
+                ModelState.AddModelError("", "請選擇有效的 Excel 檔案 (.xlsx 或 .xls)");
+                return View();
+            }
+
+            try
+            {
+                // 透過 Excel 服務匯入產品
+                var importResult = await _excelService.ImportProductsFromExcelAsync(file.OpenReadStream());
+                
+                if (importResult.SuccessCount > 0)
+                {
+                    // 批次新增產品到資料庫
+                    var addedCount = await _productService.CreateProductsBatchAsync(importResult.ImportedProducts);
+                    
+                    // 將匯入結果放入 TempData，供結果頁面使用
+                    TempData["ImportSuccess"] = $"成功匯入 {addedCount} 個產品";
+                    TempData["ImportErrors"] = importResult.Errors;
+                }
+                else
+                {
+                    TempData["ImportSuccess"] = "沒有成功匯入任何產品";
+                    TempData["ImportErrors"] = importResult.Errors;
+                }
+
+                return RedirectToAction("ImportResult");
+            }
+            catch (Exception ex)
+            {
+                ModelState.AddModelError("", $"匯入過程中發生錯誤：{ex.Message}");
+                return View();
+            }
+        }
+
+        /// <summary>
+        /// 顯示匯入結果頁面
+        /// </summary>
+        /// <returns>匯入結果頁面</returns>
+        public IActionResult ImportResult()
+        {
+            return View();
+        }
+
+        /// <summary>
+        /// 下載 Excel 範本檔案
+        /// </summary>
+        /// <returns>Excel 範本檔案下載</returns>
+        public async Task<IActionResult> DownloadTemplate()
+        {
+            try
+            {
+                // 建立範例產品資料
+                var sampleProducts = new List<Product>
+                {
+                    new Product
+                    {
+                        Id = 1,
+                        Name = "Sample Product 1",
+                        Brand = "Sample Brand",
+                        Category = "Electronics",
+                        Price = 99.99m,
+                        Description = "This is a sample product description",
+                        ImageFileName = "sample1.jpg",
+                        CreatedAt = DateTime.Now
+                    },
+                    new Product
+                    {
+                        Id = 2,
+                        Name = "Sample Product 2",
+                        Brand = "Another Brand",
+                        Category = "Clothing",
+                        Price = 49.99m,
+                        Description = "Another sample product description",
+                        ImageFileName = "sample2.jpg",
+                        CreatedAt = DateTime.Now
+                    }
+                };
+
+                // 透過 Excel 服務建立範本
+                var excelBytes = await _excelService.ExportProductsToExcelAsync(sampleProducts);
+                
+                // 設定檔案名稱
+                string fileName = "Product_Import_Template.xlsx";
+                
+                // 回傳 Excel 檔案下載
+                return File(excelBytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
+            }
+            catch (Exception)
+            {
+                // 發生例外時，重導向到匯入頁面
+                return RedirectToAction("ImportFromExcel");
             }
         }
     }

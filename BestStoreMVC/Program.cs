@@ -66,6 +66,7 @@ builder.Services.AddScoped<ICartService, CartService>();
 builder.Services.AddScoped<ICheckoutService, CheckoutService>();
 builder.Services.AddScoped<IAdminOrderService, AdminOrderService>();
 builder.Services.AddScoped<IAccountService, AccountService>();
+builder.Services.AddScoped<IExcelService, ExcelService>();
 
 // === 憑證服務：只保留「同一實例」註冊，避免重複註冊 ===
 var certificateService = new CertificateService(builder.Configuration, builder.Environment);

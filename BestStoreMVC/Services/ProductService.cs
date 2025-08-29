@@ -180,6 +180,36 @@ namespace BestStoreMVC.Services
         }
 
         /// <summary>
+        /// 批次新增產品
+        /// </summary>
+        /// <param name="products">產品清單</param>
+        /// <returns>新增成功的產品數量</returns>
+        public async Task<int> CreateProductsBatchAsync(IEnumerable<Product> products)
+        {
+            int successCount = 0;
+            
+            foreach (var product in products)
+            {
+                try
+                {
+                    // 設定建立時間
+                    product.CreatedAt = DateTime.Now;
+                    
+                    // 透過 Repository 新增產品
+                    await _unitOfWork.Products.AddAsync(product);
+                    successCount++;
+                }
+                catch (Exception)
+                {
+                    // 記錄錯誤但繼續處理其他產品
+                    // 在實際應用中，您可能需要記錄詳細的錯誤資訊
+                }
+            }
+
+            return successCount;
+        }
+
+        /// <summary>
         /// 儲存圖片檔案到伺服器
         /// </summary>
         /// <param name="imageFile">上傳的圖片檔案</param>

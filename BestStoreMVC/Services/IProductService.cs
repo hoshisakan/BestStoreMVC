@@ -64,5 +64,12 @@ namespace BestStoreMVC.Services
         /// <param name="id">產品 ID</param>
         /// <returns>產品是否存在</returns>
         Task<bool> ProductExistsAsync(int id);
+
+        /// <summary>
+        /// 批次新增產品
+        /// </summary>
+        /// <param name="products">產品清單</param>
+        /// <returns>新增成功的產品數量</returns>
+        Task<int> CreateProductsBatchAsync(IEnumerable<Product> products);
     }
 }
