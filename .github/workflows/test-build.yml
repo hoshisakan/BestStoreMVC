@@ -1,0 +1,56 @@
+# 簡化的測試建置工作流程
+name: Test Build
+
+on:
+    push:
+        branches: [main]
+    workflow_dispatch:
+
+jobs:
+    test-build:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Setup .NET 8.0.x
+              uses: actions/setup-dotnet@v4
+              with:
+                  dotnet-version: '8.0.x'
+
+            - name: Debug project structure
+              run: |
+                  echo "=== 專案結構診斷 ==="
+                  echo "當前目錄: $(pwd)"
+                  echo "根目錄內容:"
+                  ls -la
+                  echo ""
+                  echo "BestStoreMVC 目錄內容:"
+                  ls -la BestStoreMVC/
+                  echo ""
+                  echo "專案檔案:"
+                  find . -name "*.csproj" -type f
+                  echo ""
+                  echo ".NET 版本:"
+                  dotnet --version
+                  echo ""
+                  echo "專案檔案內容:"
+                  cat BestStoreMVC/BestStoreMVC.csproj
+
+            - name: Test restore
+              run: |
+                  echo "=== 測試還原 ==="
+                  dotnet restore BestStoreMVC/BestStoreMVC.csproj --verbosity normal
+              working-directory: ${{ github.workspace }}
+
+            - name: Test build
+              run: |
+                  echo "=== 測試建置 ==="
+                  dotnet build BestStoreMVC/BestStoreMVC.csproj --configuration Release --verbosity normal
+              working-directory: ${{ github.workspace }}
+
+            - name: Test publish
+              run: |
+                  echo "=== 測試發布 ==="
+                  dotnet publish BestStoreMVC/BestStoreMVC.csproj --configuration Release --output ./publish --verbosity normal
+              working-directory: ${{ github.workspace }}

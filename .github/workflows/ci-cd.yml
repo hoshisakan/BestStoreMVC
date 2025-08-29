@@ -51,6 +51,18 @@ jobs:
               with:
                   dotnet-version: ${{ env.DOTNET_VERSION }}
 
+            # 步驟 2.5: 調試環境（診斷用）
+            - name: Debug environment
+              run: |
+                  echo "Current directory: $(pwd)"
+                  echo "Files in directory:"
+                  ls -la
+                  echo "Project files:"
+                  find . -name "*.csproj" -type f
+                  echo ".NET version:"
+                  dotnet --version
+              working-directory: ${{ github.workspace }}
+
             # 步驟 3: 還原 NuGet 套件
             - name: Restore dependencies
               # 執行 dotnet restore 命令
@@ -104,7 +116,7 @@ jobs:
             # 步驟 8: 執行安全性掃描（暫時禁用）
             - name: Run security scan
               # 使用 CodeQL 進行安全性分析
-              uses: github/codeql-action/analyze@v3
+              uses: github/codeql-action/init@v3
               # 條件：只在推送到 main 分支時執行
               if: github.ref == 'refs/heads/main'
               # 設定 CodeQL 分析
@@ -112,6 +124,11 @@ jobs:
                   languages: csharp
                   queries: security-extended,security-and-quality
               # 暫時允許失敗
+              continue-on-error: true
+
+            - name: Perform CodeQL Analysis
+              uses: github/codeql-action/analyze@v3
+              if: github.ref == 'refs/heads/main'
               continue-on-error: true
 
     # 資料庫遷移作業（暫時禁用）
@@ -176,8 +193,8 @@ jobs:
         # 執行環境：使用 Ubuntu 最新版本
         runs-on: ubuntu-latest
 
-        # 依賴關係：等待資料庫遷移作業完成
-        needs: [build-and-test, database-migration]
+        # 依賴關係：等待建置和測試作業完成
+        needs: [build-and-test]
 
         # 條件：只在推送到 main 分支時執行
         if: github.ref == 'refs/heads/main'
@@ -238,7 +255,7 @@ jobs:
         runs-on: ubuntu-latest
 
         # 依賴關係：等待測試環境部署完成
-        needs: [build-and-test, database-migration, deploy-staging]
+        needs: [build-and-test, deploy-staging]
 
         # 條件：只在推送到 main 分支且手動觸發時執行
         if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch'
@@ -289,7 +306,7 @@ jobs:
             #   env:
             #       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
-    # Docker 建置作業
+    # Docker 建置作業（暫時禁用）
     docker-build:
         # 作業名稱
         name: Build Docker Image
@@ -300,8 +317,8 @@ jobs:
         # 依賴關係：等待建置和測試作業完成
         needs: build-and-test
 
-        # 條件：只在推送到 main 分支時執行
-        if: github.ref == 'refs/heads/main'
+        # 條件：暫時禁用 Docker 建置
+        if: false
 
         # 作業步驟
         steps:

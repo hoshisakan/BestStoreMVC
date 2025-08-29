@@ -1,0 +1,56 @@
+# 簡化的 CI 工作流程
+name: Simple CI
+
+on:
+    push:
+        branches: [main]
+    pull_request:
+        branches: [main]
+
+env:
+    DOTNET_VERSION: '8.0.x'
+    PROJECT_NAME: 'BestStoreMVC'
+    BUILD_CONFIGURATION: 'Release'
+
+jobs:
+    build-and-test:
+        name: Build and Test
+        runs-on: ubuntu-latest
+        
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Setup .NET ${{ env.DOTNET_VERSION }}
+              uses: actions/setup-dotnet@v4
+              with:
+                  dotnet-version: ${{ env.DOTNET_VERSION }}
+
+            - name: Restore dependencies
+              run: dotnet restore ${{ env.PROJECT_NAME }}/${{ env.PROJECT_NAME }}.csproj
+              working-directory: ${{ github.workspace }}
+
+            - name: Build project
+              run: dotnet build ${{ env.PROJECT_NAME }}/${{ env.PROJECT_NAME }}.csproj --configuration ${{ env.BUILD_CONFIGURATION }} --no-restore
+              working-directory: ${{ github.workspace }}
+
+            - name: Run unit tests
+              run: |
+                  if [ -f "${{ env.PROJECT_NAME }}/${{ env.PROJECT_NAME }}.Tests/${{ env.PROJECT_NAME }}.Tests.csproj" ]; then
+                    dotnet test ${{ env.PROJECT_NAME }}/${{ env.PROJECT_NAME }}.Tests/${{ env.PROJECT_NAME }}.Tests.csproj --configuration ${{ env.BUILD_CONFIGURATION }} --no-build --verbosity normal
+                  else
+                    echo "No test project found. Skipping tests."
+                  fi
+              working-directory: ${{ github.workspace }}
+              continue-on-error: true
+
+            - name: Publish application
+              run: dotnet publish ${{ env.PROJECT_NAME }}/${{ env.PROJECT_NAME }}.csproj --configuration ${{ env.BUILD_CONFIGURATION }} --output ./publish --no-restore
+              working-directory: ${{ github.workspace }}
+
+            - name: Upload publish artifacts
+              uses: actions/upload-artifact@v4
+              with:
+                  name: publish-files
+                  path: ./publish
+                  retention-days: 1

@@ -1,0 +1,121 @@
+# 詳細診斷工作流程
+name: Debug CI/CD Issues
+
+on:
+    workflow_dispatch:
+        inputs:
+            debug_level:
+                description: 'Debug level'
+                required: true
+                default: 'full'
+                type: choice
+                options:
+                    - basic
+                    - full
+                    - verbose
+
+jobs:
+    debug:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Setup .NET 8.0.x
+              uses: actions/setup-dotnet@v4
+              with:
+                  dotnet-version: '8.0.x'
+
+            - name: Basic Environment Check
+              run: |
+                  echo "=== 基本環境檢查 ==="
+                  echo "GitHub Workspace: ${{ github.workspace }}"
+                  echo "Current Directory: $(pwd)"
+                  echo "Git Branch: ${{ github.ref }}"
+                  echo "Git SHA: ${{ github.sha }}"
+                  echo "Event: ${{ github.event_name }}"
+
+            - name: File System Check
+              run: |
+                  echo "=== 檔案系統檢查 ==="
+                  echo "根目錄內容:"
+                  ls -la
+                  echo ""
+                  echo "BestStoreMVC 目錄內容:"
+                  ls -la BestStoreMVC/ || echo "BestStoreMVC 目錄不存在"
+                  echo ""
+                  echo "專案檔案搜尋:"
+                  find . -name "*.csproj" -type f 2>/dev/null || echo "未找到 .csproj 檔案"
+
+            - name: .NET Environment Check
+              run: |
+                  echo "=== .NET 環境檢查 ==="
+                  echo ".NET 版本:"
+                  dotnet --version
+                  echo ""
+                  echo ".NET 資訊:"
+                  dotnet --info
+                  echo ""
+                  echo "已安裝的 SDK:"
+                  dotnet --list-sdks
+                  echo ""
+                  echo "已安裝的 Runtime:"
+                  dotnet --list-runtimes
+
+            - name: Project File Analysis
+              if: hashFiles('BestStoreMVC/BestStoreMVC.csproj') != ''
+              run: |
+                  echo "=== 專案檔案分析 ==="
+                  echo "專案檔案內容:"
+                  cat BestStoreMVC/BestStoreMVC.csproj
+                  echo ""
+                  echo "專案檔案驗證:"
+                  dotnet msbuild BestStoreMVC/BestStoreMVC.csproj -t:ValidateProjectFile
+
+            - name: NuGet Check
+              run: |
+                  echo "=== NuGet 檢查 ==="
+                  echo "NuGet 來源:"
+                  dotnet nuget list source
+                  echo ""
+                  echo "NuGet 快取:"
+                  dotnet nuget locals all --list
+
+            - name: Test Restore
+              if: hashFiles('BestStoreMVC/BestStoreMVC.csproj') != ''
+              run: |
+                  echo "=== 測試還原 ==="
+                  dotnet restore BestStoreMVC/BestStoreMVC.csproj --verbosity normal
+              continue-on-error: true
+
+            - name: Test Build
+              if: hashFiles('BestStoreMVC/BestStoreMVC.csproj') != ''
+              run: |
+                  echo "=== 測試建置 ==="
+                  dotnet build BestStoreMVC/BestStoreMVC.csproj --configuration Release --verbosity normal
+              continue-on-error: true
+
+            - name: Verbose Debug (if selected)
+              if: inputs.debug_level == 'verbose'
+              run: |
+                  echo "=== 詳細調試信息 ==="
+                  echo "環境變數:"
+                  env | sort
+                  echo ""
+                  echo "系統信息:"
+                  uname -a
+                  echo ""
+                  echo "磁碟空間:"
+                  df -h
+                  echo ""
+                  echo "記憶體使用:"
+                  free -h
+
+            - name: Generate Debug Report
+              run: |
+                  echo "=== 調試報告 ==="
+                  echo "時間: $(date)"
+                  echo "工作流程: ${{ github.workflow }}"
+                  echo "作業: ${{ github.job }}"
+                  echo "Runner: ${{ runner.os }}"
+                  echo "完成狀態: ${{ job.status }}"
