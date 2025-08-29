@@ -317,8 +317,8 @@ jobs:
         # 依賴關係：等待建置和測試作業完成
         needs: build-and-test
 
-        # 條件：暫時禁用 Docker 建置
-        if: false
+        # 條件：只在推送到 main 分支時執行
+        if: github.ref == 'refs/heads/main'
 
         # 作業步驟
         steps:
