@@ -354,5 +354,150 @@ namespace BestStoreMVC.Controllers
                 return RedirectToAction("ImportFromExcel");
             }
         }
+
+        /// <summary>
+        /// 顯示批次上傳圖片頁面
+        /// </summary>
+        /// <returns>批次上傳圖片頁面</returns>
+        public IActionResult BatchUploadImages()
+        {
+            return View(new BatchImageUploadDto());
+        }
+
+        /// <summary>
+        /// 處理批次上傳圖片的 POST 請求
+        /// </summary>
+        /// <param name="batchUploadDto">批次上傳資料傳輸物件</param>
+        /// <returns>上傳結果</returns>
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> BatchUploadImages(BatchImageUploadDto batchUploadDto)
+        {
+            if (!ModelState.IsValid)
+            {
+                return View(batchUploadDto);
+            }
+
+            if (batchUploadDto.ImageFiles == null || !batchUploadDto.ImageFiles.Any())
+            {
+                ModelState.AddModelError("ImageFiles", "請選擇要上傳的圖片檔案");
+                return View(batchUploadDto);
+            }
+
+            try
+            {
+                int successCount = 0;
+                int errorCount = 0;
+                var errorMessages = new List<string>();
+
+                foreach (var imageFile in batchUploadDto.ImageFiles)
+                {
+                    try
+                    {
+                        // 驗證檔案類型
+                        if (!IsValidImageFile(imageFile))
+                        {
+                            errorMessages.Add($"{imageFile.FileName} - 不支援的檔案格式");
+                            errorCount++;
+                            continue;
+                        }
+
+                        // 驗證檔案大小 (限制為 5MB)
+                        if (imageFile.Length > 5 * 1024 * 1024)
+                        {
+                            errorMessages.Add($"{imageFile.FileName} - 檔案大小超過 5MB 限制");
+                            errorCount++;
+                            continue;
+                        }
+
+                        // 儲存圖片檔案
+                        string newFileName = await SaveImageFileAsync(imageFile);
+                        successCount++;
+                    }
+                    catch (Exception ex)
+                    {
+                        errorMessages.Add($"{imageFile.FileName} - {ex.Message}");
+                        errorCount++;
+                    }
+                }
+
+                // 設定上傳結果訊息
+                string message = $"上傳完成！成功：{successCount} 個檔案";
+                if (errorCount > 0)
+                {
+                    message += $"，失敗：{errorCount} 個檔案";
+                    if (errorMessages.Any())
+                    {
+                        message += $"。錯誤：{string.Join("; ", errorMessages.Take(3))}";
+                        if (errorMessages.Count > 3)
+                        {
+                            message += "...";
+                        }
+                    }
+                }
+
+                batchUploadDto.UploadMessage = message;
+                TempData["UploadMessage"] = message;
+
+                return View(batchUploadDto);
+            }
+            catch (Exception ex)
+            {
+                ModelState.AddModelError("", $"上傳過程中發生錯誤：{ex.Message}");
+                return View(batchUploadDto);
+            }
+        }
+
+        /// <summary>
+        /// 驗證是否為有效的圖片檔案
+        /// </summary>
+        /// <param name="file">上傳的檔案</param>
+        /// <returns>是否為有效的圖片檔案</returns>
+        private bool IsValidImageFile(IFormFile file)
+        {
+            if (file == null || file.Length == 0)
+                return false;
+
+            // 檢查檔案副檔名
+            var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp" };
+            var fileExtension = Path.GetExtension(file.FileName).ToLowerInvariant();
+            
+            if (!allowedExtensions.Contains(fileExtension))
+                return false;
+
+            // 檢查 MIME 類型
+            var allowedMimeTypes = new[] { 
+                "image/jpeg", "image/jpg", "image/png", "image/gif", 
+                "image/bmp", "image/webp" 
+            };
+            
+            return allowedMimeTypes.Contains(file.ContentType.ToLowerInvariant());
+        }
+
+        /// <summary>
+        /// 儲存圖片檔案到伺服器
+        /// </summary>
+        /// <param name="imageFile">上傳的圖片檔案</param>
+        /// <returns>儲存後的檔案名稱</returns>
+        private async Task<string> SaveImageFileAsync(IFormFile imageFile)
+        {
+            // 產生新的檔案名稱：時間戳記 + 原始副檔名
+            string newFileName = imageFile.FileName;
+
+            // 組合完整的圖片儲存路徑
+            string imageFullPath = Path.Combine(_environment.WebRootPath, "products", newFileName);
+            
+            // 確保目錄存在
+            Directory.CreateDirectory(Path.GetDirectoryName(imageFullPath)!);
+
+            // 建立檔案串流並複製上傳的檔案內容
+            using (var stream = System.IO.File.Create(imageFullPath))
+            {
+                await imageFile.CopyToAsync(stream);
+            }
+
+            // 回傳新的檔案名稱
+            return newFileName;
+        }
     }
 }
