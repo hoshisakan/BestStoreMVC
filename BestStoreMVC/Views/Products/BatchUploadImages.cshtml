@@ -1,0 +1,95 @@
+@model BatchImageUploadDto
+
+@{
+    ViewData["Title"] = "批次上傳圖片";
+}
+
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">批次上傳圖片</h3>
+                </div>
+                <div class="card-body">
+                    @if (!string.IsNullOrEmpty(Model.UploadMessage))
+                    {
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle"></i> @Model.UploadMessage
+                        </div>
+                    }
+
+                    @if (TempData["UploadMessage"] != null)
+                    {
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle"></i> @TempData["UploadMessage"]
+                        </div>
+                    }
+
+                    <form asp-action="BatchUploadImages" method="post" enctype="multipart/form-data">
+                        <div class="mb-3">
+                            <label asp-for="ImageFiles" class="form-label">選擇圖片檔案</label>
+                            <input type="file" class="form-control" asp-for="ImageFiles" multiple 
+                                   accept=".jpg,.jpeg,.png,.gif,.bmp,.webp" />
+                            <div class="form-text">
+                                支援的格式：JPG, JPEG, PNG, GIF, BMP, WEBP<br>
+                                檔案大小限制：每個檔案最大 5MB<br>
+                                可以一次選擇多個檔案
+                            </div>
+                            <span asp-validation-for="ImageFiles" class="text-danger"></span>
+                        </div>
+
+                        <div class="mb-3">
+                            <div id="filePreview" class="row"></div>
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <a asp-action="Index" class="btn btn-secondary">返回產品列表</a>
+                            <button type="submit" class="btn btn-primary">開始上傳</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // 檔案預覽功能
+        document.querySelector('input[type="file"]').addEventListener('change', function(e) {
+            const preview = document.getElementById('filePreview');
+            preview.innerHTML = '';
+            
+            const files = e.target.files;
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                
+                // 檢查檔案類型
+                if (!file.type.startsWith('image/')) {
+                    continue;
+                }
+                
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const col = document.createElement('div');
+                    col.className = 'col-md-3 mb-2';
+                    
+                    col.innerHTML = `
+                        <div class="card">
+                            <img src="${e.target.result}" class="card-img-top" style="height: 150px; object-fit: cover;">
+                            <div class="card-body p-2">
+                                <small class="text-muted">${file.name}</small><br>
+                                <small class="text-muted">${(file.size / 1024 / 1024).toFixed(2)} MB</small>
+                            </div>
+                        </div>
+                    `;
+                    
+                    preview.appendChild(col);
+                };
+                
+                reader.readAsDataURL(file);
+            }
+        });
+    </script>
+}
