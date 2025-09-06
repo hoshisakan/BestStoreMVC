@@ -55,9 +55,5 @@ RUN dotnet publish BestStoreMVC/BestStoreMVC.csproj -c Release -o /deploy/BestSt
 # Switch to deploy directory
 WORKDIR /deploy/BestStoreMVC
 
-# Expose port
-EXPOSE 80
-EXPOSE 443
-
 # Run the app
 ENTRYPOINT [ "dotnet", "BestStoreMVC.dll" ]
