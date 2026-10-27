@@ -63,7 +63,8 @@ services:
             beststoremvc_net:
                 ipv4_address: ${DOTNET_HOST_IP}
         depends_on:
-            - mssql
+            mssql: 
+                condition: service_healthy # 確保 mssql 完全開機好才讓 web 啟動
         tty: true
         restart: always
 
@@ -95,6 +96,14 @@ services:
         networks:
             beststoremvc_net:
                 ipv4_address: ${MSSQL_HOST_IP}
+        healthcheck:
+            # 使用萬用 TCP 探針，只要 1433 埠有在監聽就視為通過，避免受資料庫背景升級影響
+            test: ["CMD-SHELL", "bash -c '</dev/tcp/127.0.0.1/1433'"]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+            start_period: 120s # 給予 120 秒讓系統資料庫安心跑完版本轉換
+            start_interval: 5s
         restart: always
 
 networks:

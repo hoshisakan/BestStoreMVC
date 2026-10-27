@@ -75,33 +75,33 @@ builder.Services.AddSingleton(certificateService);
 // 配置 Kestrel 伺服器
 builder.WebHost.UseKestrel(options =>
 {
-    // 始終啟用 HTTP 監聽（埠號 5000）
-    options.ListenAnyIP(5000);
+   // 始終啟用 HTTP 監聽（埠號 5000）
+   options.ListenAnyIP(5000);
 
-    // 使用同一個 certificateService 實例
-    var certStatus = certificateService.GetCertificateStatus();
+   // 使用同一個 certificateService 實例
+   var certStatus = certificateService.GetCertificateStatus();
 
-    if (certStatus.IsValid)
-    {
-        try
-        {
-            var certPath = certificateService.GetCertificatePath();
-            var certPwd = certificateService.GetCertificatePassword();
-            var fullPath = certificateService.GetFullCertificatePath(certPath!);
+   if (certStatus.IsValid)
+   {
+       try
+       {
+           var certPath = certificateService.GetCertificatePath();
+           var certPwd = certificateService.GetCertificatePassword();
+           var fullPath = certificateService.GetFullCertificatePath(certPath!);
 
-            options.ListenAnyIP(5001, listen => listen.UseHttps(fullPath, certPwd!));
-            Console.WriteLine($"[INFO] HTTPS enabled: {certStatus.Message}");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[WARN] Failed to configure HTTPS: {ex.Message}");
-            Console.WriteLine("[INFO] HTTPS disabled, using HTTP only.");
-        }
-    }
-    else
-    {
-        Console.WriteLine($"[INFO] HTTPS disabled: {certStatus.Message}");
-    }
+           options.ListenAnyIP(5001, listen => listen.UseHttps(fullPath, certPwd!));
+           Console.WriteLine($"[INFO] HTTPS enabled: {certStatus.Message}");
+       }
+       catch (Exception ex)
+       {
+           Console.WriteLine($"[WARN] Failed to configure HTTPS: {ex.Message}");
+           Console.WriteLine("[INFO] HTTPS disabled, using HTTP only.");
+       }
+   }
+   else
+   {
+       Console.WriteLine($"[INFO] HTTPS disabled: {certStatus.Message}");
+   }
 });
 
 var app = builder.Build();
@@ -120,19 +120,19 @@ var certStatus = certificateService.GetCertificateStatus();
 // 只有在有有效憑證時才啟用 HTTPS 重定向
 try
 {
-    if (certStatus.IsValid)
-    {
-        app.UseHttpsRedirection();
-        Console.WriteLine("[INFO] HTTPS redirection enabled.");
-    }
-    else
-    {
-        Console.WriteLine($"[INFO] HTTPS redirection disabled: {certStatus.Message}");
-    }
+   if (certStatus.IsValid)
+   {
+       app.UseHttpsRedirection();
+       Console.WriteLine("[INFO] HTTPS redirection enabled.");
+   }
+   else
+   {
+       Console.WriteLine($"[INFO] HTTPS redirection disabled: {certStatus.Message}");
+   }
 } catch (Exception ex)
 {
-    Console.WriteLine($"[ERROR] Failed to configure HTTPS redirection: {ex.Message}");
-    Console.WriteLine("[INFO] HTTPS redirection disabled, using HTTP only.");
+   Console.WriteLine($"[ERROR] Failed to configure HTTPS redirection: {ex.Message}");
+   Console.WriteLine("[INFO] HTTPS redirection disabled, using HTTP only.");
 }
 
 app.UseStaticFiles();

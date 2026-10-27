@@ -96,8 +96,14 @@ namespace BestStoreMVC.Services
                 CreatedAt = DateTime.Now // 設定建立時間為現在
             };
 
-            // 透過 Repository 新增產品並回傳
-            return await _unitOfWork.Products.AddAsync(product);
+            // 透過 Repository 新增產品
+            var addedProduct = await _unitOfWork.Products.AddAsync(product);
+            
+            // 儲存變更到資料庫
+            await _unitOfWork.SaveChangesAsync();
+            
+            // 回傳新增的產品
+            return addedProduct;
         }
 
         /// <summary>
@@ -138,8 +144,14 @@ namespace BestStoreMVC.Services
             product.Description = productDto.Description;
             product.ImageFileName = newFileName;
 
-            // 透過 Repository 更新產品並回傳
-            return await _unitOfWork.Products.UpdateAsync(product);
+            // 透過 Repository 更新產品
+            var updatedProduct = await _unitOfWork.Products.UpdateAsync(product);
+            
+            // 儲存變更到資料庫
+            await _unitOfWork.SaveChangesAsync();
+            
+            // 回傳更新後的產品
+            return updatedProduct;
         }
 
         /// <summary>
@@ -160,6 +172,9 @@ namespace BestStoreMVC.Services
 
             // 透過 Repository 刪除產品
             await _unitOfWork.Products.DeleteAsync(id);
+            
+            // 儲存變更到資料庫
+            await _unitOfWork.SaveChangesAsync();
 
             // 刪除相關的圖片檔案
             await DeleteImageFileAsync(product.ImageFileName, environment);
@@ -204,6 +219,12 @@ namespace BestStoreMVC.Services
                     // 記錄錯誤但繼續處理其他產品
                     // 在實際應用中，您可能需要記錄詳細的錯誤資訊
                 }
+            }
+            
+            // 批次儲存所有變更到資料庫
+            if (successCount > 0)
+            {
+                await _unitOfWork.SaveChangesAsync();
             }
 
             return successCount;
