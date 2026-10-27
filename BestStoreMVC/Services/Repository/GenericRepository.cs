@@ -51,13 +51,17 @@ namespace BestStoreMVC.Services.Repository
         /// </summary>
         /// <param name="entity">實體物件</param>
         /// <returns>新增的實體物件</returns>
+        /// <remarks>
+        /// 注意：此方法不會自動儲存變更到資料庫。
+        /// 需要透過 UnitOfWork.SaveChangesAsync() 來統一儲存變更。
+        /// </remarks>
         public virtual async Task<T> AddAsync(T entity)
         {
             // 將實體加入 DbSet
             _dbSet.Add(entity);
             
-            // 儲存變更到資料庫
-            await _context.SaveChangesAsync();
+            // 注意：不在此處儲存變更，由 UnitOfWork 統一管理
+            // 需要呼叫 UnitOfWork.SaveChangesAsync() 來儲存變更
             
             // 回傳新增的實體
             return entity;
@@ -68,13 +72,17 @@ namespace BestStoreMVC.Services.Repository
         /// </summary>
         /// <param name="entity">實體物件</param>
         /// <returns>更新後的實體物件</returns>
+        /// <remarks>
+        /// 注意：此方法不會自動儲存變更到資料庫。
+        /// 需要透過 UnitOfWork.SaveChangesAsync() 來統一儲存變更。
+        /// </remarks>
         public virtual async Task<T> UpdateAsync(T entity)
         {
             // 標記實體為已修改狀態
             _dbSet.Update(entity);
             
-            // 儲存變更到資料庫
-            await _context.SaveChangesAsync();
+            // 注意：不在此處儲存變更，由 UnitOfWork 統一管理
+            // 需要呼叫 UnitOfWork.SaveChangesAsync() 來儲存變更
             
             // 回傳更新後的實體
             return entity;
@@ -84,6 +92,10 @@ namespace BestStoreMVC.Services.Repository
         /// 刪除實體
         /// </summary>
         /// <param name="id">實體 ID</param>
+        /// <remarks>
+        /// 注意：此方法不會自動儲存變更到資料庫。
+        /// 需要透過 UnitOfWork.SaveChangesAsync() 來統一儲存變更。
+        /// </remarks>
         public virtual async Task DeleteAsync(int id)
         {
             // 根據 ID 查找實體
@@ -95,8 +107,8 @@ namespace BestStoreMVC.Services.Repository
                 // 從 DbSet 中移除實體
                 _dbSet.Remove(entity);
                 
-                // 儲存變更到資料庫
-                await _context.SaveChangesAsync();
+                // 注意：不在此處儲存變更，由 UnitOfWork 統一管理
+                // 需要呼叫 UnitOfWork.SaveChangesAsync() 來儲存變更
             }
         }
 

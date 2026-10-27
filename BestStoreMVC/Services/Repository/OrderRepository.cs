@@ -92,13 +92,17 @@ namespace BestStoreMVC.Services.Repository
         /// </summary>
         /// <param name="order">訂單物件</param>
         /// <returns>新增的訂單物件</returns>
+        /// <remarks>
+        /// 注意：此方法不會自動儲存變更到資料庫。
+        /// 需要透過 UnitOfWork.SaveChangesAsync() 來統一儲存變更。
+        /// </remarks>
         public async Task<Order> AddOrderWithItemsAsync(Order order)
         {
             // 新增訂單到資料庫
             _context.Orders.Add(order);
             
-            // 儲存變更（這會同時儲存訂單和訂單項目）
-            await _context.SaveChangesAsync();
+            // 注意：不在此處儲存變更，由 UnitOfWork 統一管理
+            // 需要呼叫 UnitOfWork.SaveChangesAsync() 來儲存變更
             
             // 回傳新增的訂單
             return order;
